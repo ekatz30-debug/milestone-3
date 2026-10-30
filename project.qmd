@@ -1,0 +1,107 @@
+---
+title: "Analyzing MLB Swing Outcomes with Statcast Pitch-by-Pitch Data"
+author: "Ethan Katz"
+format: html
+execute:
+  echo: false
+  warning: false
+  message: false
+---
+
+```{r}
+library(tidyverse)
+```
+
+## Introduction & Project Plans
+
+Modern Major League Baseball analytics has been transformed by Hawk-Eye optical tracking and Statcast data provided through Baseball Savant. Every pitch and swing in an MLB ballpark is measured at high resolution, capturing both how a pitcher delivers the ball and how the batter's swing interacts with it at contact. The goal of this project is to analyze pitch-by-pitch Statcast tracking data to understand how swing mechanics and pitch characteristics jointly determine batted-ball outcomes.
+
+In this project, I plan to examine how batter swing decisions and contact quality translate into offensive production—specifically distinguishing between outs, singles, extra-base hits (doubles and triples), and home runs. By combining pitch-level variables with swing-tracking metrics, I will explore which combinations of bat speed, launch angle, and exit velocity consistently produce high-value outcomes ("barrels") and how different pitch types disrupt a hitter's ability to square up the baseball.
+
+## Data & Key Variables
+
+The data for this analysis comes from MLB Statcast via Baseball Savant, where each observation represents an individual pitch put into play. To model and explain swing outcomes, I will focus on five core variables:
+
+- **Exit Velocity (`launch_speed`, mph):** The speed of the baseball immediately after it leaves the bat. Higher exit velocities give fielders less time to react and carry the ball farther, making it the primary indicator of hard contact.
+- **Launch Angle (`launch_angle`, degrees):** The vertical angle at which the ball leaves the bat. Ground balls have negative or low launch angles ($< 10^\circ$), line drives fall between $10^\circ$ and $25^\circ$, fly balls sit between $25^\circ$ and $50^\circ$, and pop-ups exceed $50^\circ$. Pairing high exit velocity with an optimal launch angle ($25^\circ\text{--}35^\circ$) produces the highest probability of a home run.
+- **Bat Speed (`bat_speed`, mph):** Introduced in recent Statcast tracking, bat speed measures how fast the sweet spot of the bat is moving at contact. It helps separate a batter's raw swing effort from the quality of the point of contact.
+- **Pitch Type (`pitch_type`):** Categorizes the pitch thrown (e.g., Four-Seam Fastball, Slider, Changeup, Curveball). Different pitch movement profiles induce different swing paths and launch angles.
+- **Release Velocity (`release_speed`, mph):** The velocity of the pitch out of the pitcher's hand, which affects both the timing window available to the hitter and the resulting exit velocity upon contact.
+
+## Data Visualization
+
+```{r}
+#| fig-width: 8
+#| fig-height: 5.5
+
+set.seed(2026)
+
+n_balls <- 900
+
+statcast_sim <- tibble(
+  pitch_type = sample(
+    c("4-Seam Fastball", "Slider", "Changeup", "Curveball"),
+    size = n_balls,
+    replace = TRUE,
+    prob = c(0.45, 0.25, 0.18, 0.12)
+  ),
+  bat_speed = rnorm(n_balls, mean = 72.5, sd = 4.2),
+  launch_angle = rnorm(n_balls, mean = 14, sd = 22) |> pmin(75) |> pmax(-45),
+  launch_speed = (45 + 0.72 * bat_speed - 0.012 * (launch_angle - 18)^2 +
+    rnorm(n_balls, mean = 0, sd = 5.5)) |> pmin(116) |> pmax(62)
+) |>
+  mutate(
+    outcome = case_when(
+      launch_speed >= 98 & between(launch_angle, 24, 38) &
+        runif(n_balls) < 0.78 ~ "Home Run",
+      launch_speed >= 92 & between(launch_angle, 14, 36) &
+        runif(n_balls) < 0.55 ~ "Extra-Base Hit (2B/3B)",
+      launch_speed >= 78 & between(launch_angle, 4, 24) &
+        runif(n_balls) < 0.65 ~ "Single",
+      TRUE ~ "In-Play Out"
+    ),
+    outcome = factor(
+      outcome,
+      levels = c("Home Run", "Extra-Base Hit (2B/3B)", "Single", "In-Play Out")
+    )
+  )
+
+ggplot(statcast_sim, aes(x = launch_angle, y = launch_speed, color = outcome)) +
+  annotate(
+    "rect",
+    xmin = 24, xmax = 38, ymin = 98, ymax = 116,
+    fill = "#f4a261", alpha = 0.15, color = "#e76f51", linetype = "dashed"
+  ) +
+  annotate(
+    "text",
+    x = 31, y = 114,
+    label = "Barrel Zone",
+    size = 3.3, fontface = "bold", color = "#b54527"
+  ) +
+  geom_point(alpha = 0.75, size = 2.1) +
+  scale_color_manual(
+    values = c(
+      "Home Run" = "#d62828",
+      "Extra-Base Hit (2B/3B)" = "#f77f00",
+      "Single" = "#2a9d8f",
+      "In-Play Out" = "#adb5bd"
+    )
+  ) +
+  scale_x_continuous(breaks = seq(-40, 70, by = 20), labels = \(x) paste0(x, "°")) +
+  scale_y_continuous(breaks = seq(60, 115, by = 10), labels = \(x) paste0(x, " mph")) +
+  labs(
+    title = "MLB Batted-Ball Outcomes by Launch Angle and Exit Velocity",
+    subtitle = "Home runs cluster tightly in the high-velocity, mid-angle 'Barrel Zone' (98+ mph, 24°–38°)",
+    x = "Launch Angle (degrees)",
+    y = "Exit Velocity (mph)",
+    color = "Swing Outcome",
+    caption = "Source: Simulated Statcast batted-ball tracking data modeled on Baseball Savant distributions"
+  ) +
+  theme_minimal(base_size = 12) +
+  theme(
+    plot.title = element_text(face = "bold", size = 14),
+    plot.subtitle = element_text(color = "gray30", size = 10.5),
+    legend.position = "top",
+    panel.grid.minor = element_blank()
+  )
+```
