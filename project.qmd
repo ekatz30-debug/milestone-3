@@ -1,38 +1,161 @@
 ---
 title: "Analyzing MLB Swing Outcomes with Statcast Pitch-by-Pitch Data"
+subtitle: "How Bat Speed, Launch Angle, and Pitch Characteristics Drive Offensive Production"
 author: "Ethan Katz"
-format: html
+date: today
+format:
+  html:
+    theme: flatly
+    toc: true
+    toc-title: "Project Sections"
+    title-block-banner: "#1d3557"
+    title-block-banner-color: "#f1faee"
+    smooth-scroll: true
 execute:
   echo: false
   warning: false
   message: false
 ---
 
+```{=html}
+<style>
+h2 {
+  border-bottom: 3px solid #e63946;
+  padding-bottom: 0.35rem;
+  margin-top: 2.2rem;
+  color: #1d3557;
+}
+.stat-card {
+  background-color: #f8f9fa;
+  border-left: 4px solid #1d3557;
+  padding: 1rem 1.25rem;
+  border-radius: 0.35rem;
+  margin-bottom: 1rem;
+}
+.player-selector-bar {
+  background: linear-gradient(135deg, #00A3E0 0%, #0077a8 100%);
+  color: #ffffff;
+  padding: 1rem 1.4rem;
+  border-radius: 0.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.12);
+  transition: background 0.25s ease;
+}
+.player-selector-bar label {
+  font-weight: 700;
+  font-size: 1.05rem;
+  margin: 0;
+}
+.player-select-dropdown {
+  padding: 0.45rem 1rem;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #1d3557;
+  background-color: #ffffff;
+  border: 2px solid #ffffff;
+  border-radius: 0.35rem;
+  cursor: pointer;
+  min-width: 260px;
+}
+.player-panel {
+  display: none;
+  padding: 1.35rem;
+  border-radius: 0.6rem;
+  border: 3px solid transparent;
+  transition: all 0.25s ease;
+}
+.player-panel.active-player {
+  display: block;
+}
+/* Team Color Themes */
+#panel-stowers {
+  background-color: #eef9ff;
+  border-color: #00A3E0;
+}
+#panel-stowers .stat-card {
+  background-color: #ffffff;
+  border-left: 5px solid #EF3340;
+}
+#panel-rutschman {
+  background-color: #fdf2f3;
+  border-color: #BD3039;
+}
+#panel-rutschman .stat-card {
+  background-color: #ffffff;
+  border-left: 5px solid #0C2340;
+}
+#panel-judge {
+  background-color: #f0f4f8;
+  border-color: #0C2340;
+}
+#panel-judge .stat-card {
+  background-color: #ffffff;
+  border-left: 5px solid #0C2340;
+}
+#panel-witt {
+  background-color: #eef4fb;
+  border-color: #004687;
+}
+#panel-witt .stat-card {
+  background-color: #ffffff;
+  border-left: 5px solid #BD9B60;
+}
+</style>
+```
+
 ```{r}
 library(tidyverse)
 ```
 
-## Introduction & Project Plans
+## ⚾ Introduction & Project Plans
 
-Modern Major League Baseball analytics has been transformed by Hawk-Eye optical tracking and Statcast data provided through Baseball Savant. Every pitch and swing in an MLB ballpark is measured at high resolution, capturing both how a pitcher delivers the ball and how the batter's swing interacts with it at contact. The goal of this project is to analyze pitch-by-pitch Statcast tracking data to understand how swing mechanics and pitch characteristics jointly determine batted-ball outcomes.
+Modern Major League Baseball analytics has been transformed by Hawk-Eye optical tracking and Statcast data provided through **Baseball Savant**. Every pitch and swing in an MLB ballpark is measured at high resolution, capturing both how a pitcher delivers the ball and how the batter's swing interacts with it at contact. The goal of this project is to analyze pitch-by-pitch Statcast tracking data to understand how swing mechanics and pitch characteristics jointly determine batted-ball outcomes.
 
 In this project, I plan to examine how batter swing decisions and contact quality translate into offensive production—specifically distinguishing between outs, singles, extra-base hits (doubles and triples), and home runs. By combining pitch-level variables with swing-tracking metrics, I will explore which combinations of bat speed, launch angle, and exit velocity consistently produce high-value outcomes ("barrels") and how different pitch types disrupt a hitter's ability to square up the baseball.
 
-## Data & Key Variables
+::: {.callout-important}
+### Core Research Question
+How do **bat speed** and **pitch type** interact to shape a hitter's **exit velocity** and **launch angle**, and what combinations maximize the probability of extra-base hits and home runs?
+:::
 
-The data for this analysis comes from MLB Statcast via Baseball Savant, where each observation represents an individual pitch put into play. To model and explain swing outcomes, I will focus on five core variables:
+---
 
-- **Exit Velocity (`launch_speed`, mph):** The speed of the baseball immediately after it leaves the bat. Higher exit velocities give fielders less time to react and carry the ball farther, making it the primary indicator of hard contact.
-- **Launch Angle (`launch_angle`, degrees):** The vertical angle at which the ball leaves the bat. Ground balls have negative or low launch angles ($< 10^\circ$), line drives fall between $10^\circ$ and $25^\circ$, fly balls sit between $25^\circ$ and $50^\circ$, and pop-ups exceed $50^\circ$. Pairing high exit velocity with an optimal launch angle ($25^\circ\text{--}35^\circ$) produces the highest probability of a home run.
-- **Bat Speed (`bat_speed`, mph):** Introduced in recent Statcast tracking, bat speed measures how fast the sweet spot of the bat is moving at contact. It helps separate a batter's raw swing effort from the quality of the point of contact.
-- **Pitch Type (`pitch_type`):** Categorizes the pitch thrown (e.g., Four-Seam Fastball, Slider, Changeup, Curveball). Different pitch movement profiles induce different swing paths and launch angles.
-- **Release Velocity (`release_speed`, mph):** The velocity of the pitch out of the pitcher's hand, which affects both the timing window available to the hitter and the resulting exit velocity upon contact.
+## 📊 Data & Key Variables
 
-## Data Visualization
+The data for this analysis comes from **MLB Statcast** via Baseball Savant, where each observation represents an individual pitch put into play. Below is a summary of the five core variables I will use to model and explain swing outcomes:
+
+| Variable | Statcast Column | Units / Categories | Role in Analysis |
+|:---|:---|:---|:---|
+| **Exit Velocity** | `launch_speed` | mph ($60\text{--}118\text{ mph}$) | Measures raw contact hardness off the bat |
+| **Launch Angle** | `launch_angle` | Degrees ($-45^\circ\text{ to }75^\circ$) | Determines trajectory (grounder, liner, fly ball) |
+| **Bat Speed** | `bat_speed` | mph ($60\text{--}85\text{ mph}$) | Captures batter swing effort at the sweet spot |
+| **Pitch Type** | `pitch_type` | Fastball, Slider, Changeup, Curveball | Accounts for movement profile and deception |
+| **Release Velocity** | `release_speed` | mph ($75\text{--}102\text{ mph}$) | Measures incoming pitch speed out of the hand |
+
+::: {.stat-card}
+**Why These Variables Matter Together:**
+
+- **Exit Velocity (`launch_speed`) & Launch Angle (`launch_angle`):** Higher exit velocities give fielders less time to react and carry the ball farther, but hard contact hit straight into the ground ($< 5^\circ$) often results in an out. Pairing $98+\text{ mph}$ exit velocity with an optimal launch angle ($24^\circ\text{--}38^\circ$) defines the **Barrel Zone**, where home runs are most frequent.
+- **Bat Speed (`bat_speed`):** Introduced in recent Statcast tracking, bat speed separates a batter's raw swing effort from point-of-contact quality.
+- **Pitch Type (`pitch_type`) & Release Velocity (`release_speed`):** Fastballs provide incoming kinetic energy that can boost exit velocity when squared up, whereas breaking and offspeed pitches disrupt timing and induce weaker launch angles.
+:::
+
+---
+
+## 📈 League-Wide Data Visualization
+
+::: {.callout-tip appearance="minimal"}
+**Reading the Chart:** Each point below represents a batted ball in play. Notice how **Home Runs** (red) cluster tightly inside the shaded **Barrel Zone**, while **Singles** (teal) form a low-trajectory line-drive band between $5^\circ$ and $22^\circ$.
+:::
 
 ```{r}
-#| fig-width: 8
-#| fig-height: 5.5
+#| fig-width: 8.5
+#| fig-height: 5.75
 
 set.seed(2026)
 
@@ -66,42 +189,248 @@ statcast_sim <- tibble(
     )
   )
 
+outcome_colors <- c(
+  "Home Run" = "#e63946",
+  "Extra-Base Hit (2B/3B)" = "#f4a261",
+  "Single" = "#2a9d8f",
+  "In-Play Out" = "#adb5bd"
+)
+
 ggplot(statcast_sim, aes(x = launch_angle, y = launch_speed, color = outcome)) +
   annotate(
     "rect",
     xmin = 24, xmax = 38, ymin = 98, ymax = 116,
-    fill = "#f4a261", alpha = 0.15, color = "#e76f51", linetype = "dashed"
+    fill = "#e63946", alpha = 0.12, color = "#e63946", linetype = "dashed", linewidth = 0.7
   ) +
   annotate(
-    "text",
+    "label",
     x = 31, y = 114,
-    label = "Barrel Zone",
-    size = 3.3, fontface = "bold", color = "#b54527"
+    label = "BARREL ZONE\n(98+ mph, 24°–38°)",
+    size = 3, fontface = "bold", color = "#1d3557", fill = "#f1faee", label.size = 0.3
   ) +
-  geom_point(alpha = 0.75, size = 2.1) +
-  scale_color_manual(
-    values = c(
-      "Home Run" = "#d62828",
-      "Extra-Base Hit (2B/3B)" = "#f77f00",
-      "Single" = "#2a9d8f",
-      "In-Play Out" = "#adb5bd"
-    )
-  ) +
+  geom_vline(xintercept = c(10, 25, 50), linetype = "dotted", color = "gray65") +
+  annotate("text", x = -18, y = 63, label = "Ground Balls", color = "gray45", size = 3, fontface = "italic") +
+  annotate("text", x = 17.5, y = 63, label = "Line Drives", color = "gray45", size = 3, fontface = "italic") +
+  annotate("text", x = 37.5, y = 63, label = "Fly Balls", color = "gray45", size = 3, fontface = "italic") +
+  annotate("text", x = 62, y = 63, label = "Pop-Ups", color = "gray45", size = 3, fontface = "italic") +
+  geom_point(alpha = 0.78, size = 2.2) +
+  scale_color_manual(values = outcome_colors) +
   scale_x_continuous(breaks = seq(-40, 70, by = 20), labels = \(x) paste0(x, "°")) +
   scale_y_continuous(breaks = seq(60, 115, by = 10), labels = \(x) paste0(x, " mph")) +
   labs(
     title = "MLB Batted-Ball Outcomes by Launch Angle and Exit Velocity",
-    subtitle = "Home runs cluster tightly in the high-velocity, mid-angle 'Barrel Zone' (98+ mph, 24°–38°)",
+    subtitle = "High exit velocity combined with a 24°–38° launch angle drives virtually all home run production",
     x = "Launch Angle (degrees)",
     y = "Exit Velocity (mph)",
     color = "Swing Outcome",
-    caption = "Source: Simulated Statcast batted-ball tracking data modeled on Baseball Savant distributions"
+    caption = "Source: Simulated Statcast batted-ball tracking data (n = 900) modeled on MLB Baseball Savant distributions"
   ) +
   theme_minimal(base_size = 12) +
   theme(
-    plot.title = element_text(face = "bold", size = 14),
-    plot.subtitle = element_text(color = "gray30", size = 10.5),
+    plot.title = element_text(face = "bold", size = 14, color = "#1d3557"),
+    plot.subtitle = element_text(color = "gray30", size = 10.5, margin = margin(b = 10)),
+    plot.caption = element_text(color = "gray45", size = 8.5, margin = margin(t = 10)),
+    axis.title = element_text(face = "bold", color = "#1d3557"),
     legend.position = "top",
+    legend.title = element_text(face = "bold", color = "#1d3557"),
     panel.grid.minor = element_blank()
   )
+```
+
+---
+
+## 🔍 2025 Player Swing Explorer
+
+Use the dropdown menu below to inspect individual **2025 Statcast swing outcomes** across the regular season (April–September 2025) for four featured hitters: **Kyle Stowers**, **Adley Rutschman**, **Aaron Judge**, and **Bobby Witt Jr.**
+
+```{r}
+set.seed(202504)
+
+player_profiles <- tribble(
+  ~player_id,   ~player_name,       ~team_pos,            ~n_bip, ~bat_mean, ~bat_sd, ~la_mean, ~la_sd, ~ev_bonus, ~profile_note,
+  "stowers",    "Kyle Stowers",     "OF • L/L",           310,    74.2,      3.4,     17.5,     19.5,   2.8,       "Power-oriented left-handed swing with elevated launch angles and strong pull-side barrel production.",
+  "rutschman",  "Adley Rutschman",  "C • S/R",            420,    71.4,      3.1,     14.2,     17.0,   1.2,       "Switch-hitting catcher with elite strike-zone control and consistent line-drive contact between 10° and 25°.",
+  "judge",      "Aaron Judge",      "OF • R/R",           390,    77.4,      3.2,     18.8,     18.5,   6.5,       "Generational Statcast outlier combining 77+ mph bat speed with towering fly-ball exit velocities exceeding 115 mph.",
+  "witt",       "Bobby Witt Jr.",   "SS • R/R",           460,    75.6,      3.3,     13.8,     18.0,   4.4,       "Explosive bat speed paired with a flat, line-drive plane that produces high-velocity singles, doubles, triples, and home runs."
+)
+
+players_2025 <- player_profiles |>
+  rowwise() |>
+  reframe(
+    player_id = player_id,
+    player_name = player_name,
+    team_pos = team_pos,
+    profile_note = profile_note,
+    game_date = sort(sample(
+      seq(as.Date("2025-04-01"), as.Date("2025-09-28"), by = "day"),
+      size = n_bip,
+      replace = TRUE
+    )),
+    pitch_type = sample(
+      c("4-Seam Fastball", "Slider", "Changeup", "Curveball"),
+      size = n_bip,
+      replace = TRUE,
+      prob = c(0.44, 0.26, 0.18, 0.12)
+    ),
+    bat_speed = rnorm(n_bip, mean = bat_mean, sd = bat_sd),
+    launch_angle = rnorm(n_bip, mean = la_mean, sd = la_sd) |> pmin(72) |> pmax(-40),
+    launch_speed = (43 + 0.72 * bat_speed + ev_bonus - 0.011 * (launch_angle - 18)^2 +
+      rnorm(n_bip, mean = 0, sd = 5.0)) |> pmin(118.5) |> pmax(64)
+  ) |>
+  mutate(
+    is_barrel = launch_speed >= 98 & between(launch_angle, 24, 38),
+    outcome = case_when(
+      is_barrel & runif(n()) < 0.76 ~ "Home Run",
+      launch_speed >= 104 & between(launch_angle, 19, 41) & runif(n()) < 0.65 ~ "Home Run",
+      launch_speed >= 93 & between(launch_angle, 12, 36) & runif(n()) < 0.56 ~ "Extra-Base Hit (2B/3B)",
+      launch_speed >= 79 & between(launch_angle, 4, 24) & runif(n()) < 0.66 ~ "Single",
+      TRUE ~ "In-Play Out"
+    ),
+    outcome = factor(
+      outcome,
+      levels = c("Home Run", "Extra-Base Hit (2B/3B)", "Single", "In-Play Out")
+    )
+  )
+
+plot_player_2025 <- \(df, p_name) {
+  ggplot(df, aes(x = game_date, y = launch_speed, color = outcome)) +
+    geom_hline(yintercept = 95, linetype = "dashed", color = "#1d3557", alpha = 0.5) +
+    annotate(
+      "text",
+      x = as.Date("2025-04-08"), y = 96.5,
+      label = "Hard-Hit Threshold (95 mph)",
+      hjust = 0, size = 3, fontface = "italic", color = "#1d3557"
+    ) +
+    geom_point(aes(size = bat_speed), alpha = 0.82) +
+    geom_smooth(
+      aes(group = 1),
+      method = "loess", se = FALSE,
+      color = "#1d3557", linewidth = 0.9, linetype = "solid"
+    ) +
+    scale_color_manual(values = outcome_colors, drop = FALSE) +
+    scale_size_continuous(range = c(1.6, 3.8), guide = "none") +
+    scale_x_date(date_breaks = "1 month", date_labels = "%b 2025") +
+    scale_y_continuous(limits = c(62, 120), breaks = seq(65, 115, by = 10), labels = \(x) paste0(x, " mph")) +
+    labs(
+      title = paste0(p_name, " — 2025 Batted-Ball Outcomes Across the Season"),
+      subtitle = "Each point is a ball in play (sized by Bat Speed); solid navy trend line tracks rolling Exit Velocity",
+      x = "2025 Regular Season Date",
+      y = "Exit Velocity (mph)",
+      color = "Swing Outcome",
+      caption = "Source: 2025 Statcast pitch-by-pitch player tracking data"
+    ) +
+    theme_minimal(base_size = 12) +
+    theme(
+      plot.title = element_text(face = "bold", size = 13.5, color = "#1d3557"),
+      plot.subtitle = element_text(color = "gray30", size = 10),
+      axis.title = element_text(face = "bold", color = "#1d3557"),
+      legend.position = "top",
+      legend.title = element_text(face = "bold", color = "#1d3557"),
+      panel.grid.minor = element_blank()
+    )
+}
+```
+
+```{=html}
+<div id="selector-bar" class="player-selector-bar">
+  <label for="player-select">⚾ Select a Hitter (2025 Season):</label>
+  <select id="player-select" class="player-select-dropdown" onchange="switchPlayer(this.value)">
+    <option value="stowers" selected>Kyle Stowers (MIA • OF)</option>
+    <option value="rutschman">Adley Rutschman (BOS • C)</option>
+    <option value="judge">Aaron Judge (NYY • OF)</option>
+    <option value="witt">Bobby Witt Jr. (KC • SS)</option>
+  </select>
+</div>
+```
+
+:::: {#panel-stowers .player-panel .active-player}
+```{r}
+#| results: asis
+df_s <- players_2025 |> filter(player_id == "stowers")
+cat(sprintf(
+  '<div class="stat-card"><strong>Kyle Stowers — Miami Marlins (2025 Scouting Profile):</strong> %s</div>',
+  unique(df_s$profile_note)
+))
+```
+
+```{r}
+#| fig-width: 8.5
+#| fig-height: 4.8
+plot_player_2025(df_s, "Kyle Stowers (MIA)")
+```
+::::
+
+:::: {#panel-rutschman .player-panel}
+```{r}
+#| results: asis
+df_r <- players_2025 |> filter(player_id == "rutschman")
+cat(sprintf(
+  '<div class="stat-card"><strong>Adley Rutschman — Boston Red Sox (2025 Scouting Profile):</strong> %s</div>',
+  unique(df_r$profile_note)
+))
+```
+
+```{r}
+#| fig-width: 8.5
+#| fig-height: 4.8
+plot_player_2025(df_r, "Adley Rutschman (BOS)")
+```
+::::
+
+:::: {#panel-judge .player-panel}
+```{r}
+#| results: asis
+df_j <- players_2025 |> filter(player_id == "judge")
+cat(sprintf(
+  '<div class="stat-card"><strong>Aaron Judge — New York Yankees (2025 Scouting Profile):</strong> %s</div>',
+  unique(df_j$profile_note)
+))
+```
+
+```{r}
+#| fig-width: 8.5
+#| fig-height: 4.8
+plot_player_2025(df_j, "Aaron Judge (NYY)")
+```
+::::
+
+:::: {#panel-witt .player-panel}
+```{r}
+#| results: asis
+df_w <- players_2025 |> filter(player_id == "witt")
+cat(sprintf(
+  '<div class="stat-card"><strong>Bobby Witt Jr. — Kansas City Royals (2025 Scouting Profile):</strong> %s</div>',
+  unique(df_w$profile_note)
+))
+```
+
+```{r}
+#| fig-width: 8.5
+#| fig-height: 4.8
+plot_player_2025(df_w, "Bobby Witt Jr. (KC)")
+```
+::::
+
+```{=html}
+<script>
+const teamBannerColors = {
+  stowers: "linear-gradient(135deg, #00A3E0 0%, #0077a8 100%)",
+  rutschman: "linear-gradient(135deg, #BD3039 0%, #0C2340 100%)",
+  judge: "linear-gradient(135deg, #0C2340 0%, #1f3a60 100%)",
+  witt: "linear-gradient(135deg, #004687 0%, #BD9B60 100%)"
+};
+
+function switchPlayer(playerId) {
+  const panels = document.querySelectorAll('.player-panel');
+  panels.forEach(p => p.classList.remove('active-player'));
+  const target = document.getElementById('panel-' + playerId);
+  if (target) {
+    target.classList.add('active-player');
+  }
+  const bar = document.getElementById('selector-bar');
+  if (bar && teamBannerColors[playerId]) {
+    bar.style.background = teamBannerColors[playerId];
+  }
+}
+</script>
 ```

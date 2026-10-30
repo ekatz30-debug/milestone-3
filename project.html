@@ -7,6 +7,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 
 <meta name="author" content="Ethan Katz">
+<meta name="dcterms.date" content="2026-10-30">
 
 <title>Analyzing MLB Swing Outcomes with Statcast Pitch-by-Pitch Data</title>
 <style>
@@ -40,7 +41,25 @@ ul.task-list li input[type="checkbox"] {
 <link href="project_files/libs/quarto-html/quarto-syntax-highlighting-bf27225e3a48a9273f3daa8f8e829971.css" rel="stylesheet" id="quarto-text-highlighting-styles">
 <script src="project_files/libs/bootstrap/bootstrap.min.js"></script>
 <link href="project_files/libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
-<link href="project_files/libs/bootstrap/bootstrap-2d8e8d8c08cd9eb5ffb286a132dd36b7.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+<link href="project_files/libs/bootstrap/bootstrap-cb737696dd06486907558e3ddee1b241.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+<style>html{ scroll-behavior: smooth; }</style>
+<style>
+
+      .quarto-title-block .quarto-title-banner h1,
+      .quarto-title-block .quarto-title-banner h2,
+      .quarto-title-block .quarto-title-banner h3,
+      .quarto-title-block .quarto-title-banner h4,
+      .quarto-title-block .quarto-title-banner h5,
+      .quarto-title-block .quarto-title-banner h6
+      {
+        color: #f1faee;
+      }
+
+      .quarto-title-block .quarto-title-banner {
+        color: #f1faee;
+background: #1d3557;
+      }
+</style>
 
   <script src="https://cdnjs.cloudflare.com/polyfill/v3/polyfill.min.js?features=es6"></script>
   <script defer="" src="https://cdn.jsdelivr.net/npm/mathjax@4/tex-chtml.js" type="text/javascript"></script>
@@ -74,64 +93,336 @@ window.Quarto = {
 
 </head>
 
-<body class="fullcontent quarto-light">
+<body class="quarto-light">
 
-<div id="quarto-content" class="page-columns page-rows-contents page-layout-article">
+<header id="title-block-header" class="quarto-title-block default page-columns page-full">
+  <div class="quarto-title-banner page-columns page-full">
+    <div class="quarto-title column-body">
+      <h1 class="title">Analyzing MLB Swing Outcomes with Statcast Pitch-by-Pitch Data</h1>
+            <p class="subtitle lead">How Bat Speed, Launch Angle, and Pitch Characteristics Drive Offensive Production</p>
+                      </div>
+  </div>
+    
+  
+  <div class="quarto-title-meta">
 
-<main class="content" id="quarto-document-content">
-
-<header id="title-block-header" class="quarto-title-block default">
-<div class="quarto-title">
-<h1 class="title">Analyzing MLB Swing Outcomes with Statcast Pitch-by-Pitch Data</h1>
+      <div>
+      <div class="quarto-title-meta-heading">Author</div>
+      <div class="quarto-title-meta-contents">
+               <p>Ethan Katz </p>
+            </div>
+    </div>
+      
+      <div>
+      <div class="quarto-title-meta-heading">Published</div>
+      <div class="quarto-title-meta-contents">
+        <p class="date">October 30, 2026</p>
+      </div>
+    </div>
+    
+      
+    </div>
+    
+  
+  </header><div id="quarto-content" class="page-columns page-rows-contents page-layout-article">
+<div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
+  <nav id="TOC" role="doc-toc" class="toc-active">
+    <h2 id="toc-title">Project Sections</h2>
+   
+  <ul>
+  <li><a href="#introduction-project-plans" id="toc-introduction-project-plans" class="nav-link active" data-scroll-target="#introduction-project-plans">⚾ Introduction &amp; Project Plans</a></li>
+  <li><a href="#data-key-variables" id="toc-data-key-variables" class="nav-link" data-scroll-target="#data-key-variables">📊 Data &amp; Key Variables</a></li>
+  <li><a href="#league-wide-data-visualization" id="toc-league-wide-data-visualization" class="nav-link" data-scroll-target="#league-wide-data-visualization">📈 League-Wide Data Visualization</a></li>
+  <li><a href="#player-swing-explorer" id="toc-player-swing-explorer" class="nav-link" data-scroll-target="#player-swing-explorer">🔍 2025 Player Swing Explorer</a></li>
+  </ul>
+</nav>
 </div>
+<main class="content quarto-banner-title-block" id="quarto-document-content">
 
 
 
-<div class="quarto-title-meta">
-
-    <div>
-    <div class="quarto-title-meta-heading">Author</div>
-    <div class="quarto-title-meta-contents">
-             <p>Ethan Katz </p>
-          </div>
-  </div>
-    
-  
-    
-  </div>
-  
 
 
-</header>
-
-
+<style>
+h2 {
+  border-bottom: 3px solid #e63946;
+  padding-bottom: 0.35rem;
+  margin-top: 2.2rem;
+  color: #1d3557;
+}
+.stat-card {
+  background-color: #f8f9fa;
+  border-left: 4px solid #1d3557;
+  padding: 1rem 1.25rem;
+  border-radius: 0.35rem;
+  margin-bottom: 1rem;
+}
+.player-selector-bar {
+  background: linear-gradient(135deg, #00A3E0 0%, #0077a8 100%);
+  color: #ffffff;
+  padding: 1rem 1.4rem;
+  border-radius: 0.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.12);
+  transition: background 0.25s ease;
+}
+.player-selector-bar label {
+  font-weight: 700;
+  font-size: 1.05rem;
+  margin: 0;
+}
+.player-select-dropdown {
+  padding: 0.45rem 1rem;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #1d3557;
+  background-color: #ffffff;
+  border: 2px solid #ffffff;
+  border-radius: 0.35rem;
+  cursor: pointer;
+  min-width: 260px;
+}
+.player-panel {
+  display: none;
+  padding: 1.35rem;
+  border-radius: 0.6rem;
+  border: 3px solid transparent;
+  transition: all 0.25s ease;
+}
+.player-panel.active-player {
+  display: block;
+}
+/* Team Color Themes */
+#panel-stowers {
+  background-color: #eef9ff;
+  border-color: #00A3E0;
+}
+#panel-stowers .stat-card {
+  background-color: #ffffff;
+  border-left: 5px solid #EF3340;
+}
+#panel-rutschman {
+  background-color: #fdf2f3;
+  border-color: #BD3039;
+}
+#panel-rutschman .stat-card {
+  background-color: #ffffff;
+  border-left: 5px solid #0C2340;
+}
+#panel-judge {
+  background-color: #f0f4f8;
+  border-color: #0C2340;
+}
+#panel-judge .stat-card {
+  background-color: #ffffff;
+  border-left: 5px solid #0C2340;
+}
+#panel-witt {
+  background-color: #eef4fb;
+  border-color: #004687;
+}
+#panel-witt .stat-card {
+  background-color: #ffffff;
+  border-left: 5px solid #BD9B60;
+}
+</style>
 <section id="introduction-project-plans" class="level2">
-<h2 class="anchored" data-anchor-id="introduction-project-plans">Introduction &amp; Project Plans</h2>
-<p>Modern Major League Baseball analytics has been transformed by Hawk-Eye optical tracking and Statcast data provided through Baseball Savant. Every pitch and swing in an MLB ballpark is measured at high resolution, capturing both how a pitcher delivers the ball and how the batter’s swing interacts with it at contact. The goal of this project is to analyze pitch-by-pitch Statcast tracking data to understand how swing mechanics and pitch characteristics jointly determine batted-ball outcomes.</p>
+<h2 class="anchored" data-anchor-id="introduction-project-plans">⚾ Introduction &amp; Project Plans</h2>
+<p>Modern Major League Baseball analytics has been transformed by Hawk-Eye optical tracking and Statcast data provided through <strong>Baseball Savant</strong>. Every pitch and swing in an MLB ballpark is measured at high resolution, capturing both how a pitcher delivers the ball and how the batter’s swing interacts with it at contact. The goal of this project is to analyze pitch-by-pitch Statcast tracking data to understand how swing mechanics and pitch characteristics jointly determine batted-ball outcomes.</p>
 <p>In this project, I plan to examine how batter swing decisions and contact quality translate into offensive production—specifically distinguishing between outs, singles, extra-base hits (doubles and triples), and home runs. By combining pitch-level variables with swing-tracking metrics, I will explore which combinations of bat speed, launch angle, and exit velocity consistently produce high-value outcomes (“barrels”) and how different pitch types disrupt a hitter’s ability to square up the baseball.</p>
+<div class="callout callout-style-default callout-important callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Important</span>Core Research Question
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>How do <strong>bat speed</strong> and <strong>pitch type</strong> interact to shape a hitter’s <strong>exit velocity</strong> and <strong>launch angle</strong>, and what combinations maximize the probability of extra-base hits and home runs?</p>
+</div>
+</div>
+<hr>
 </section>
 <section id="data-key-variables" class="level2">
-<h2 class="anchored" data-anchor-id="data-key-variables">Data &amp; Key Variables</h2>
-<p>The data for this analysis comes from MLB Statcast via Baseball Savant, where each observation represents an individual pitch put into play. To model and explain swing outcomes, I will focus on five core variables:</p>
+<h2 class="anchored" data-anchor-id="data-key-variables">📊 Data &amp; Key Variables</h2>
+<p>The data for this analysis comes from <strong>MLB Statcast</strong> via Baseball Savant, where each observation represents an individual pitch put into play. Below is a summary of the five core variables I will use to model and explain swing outcomes:</p>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 25%">
+<col style="width: 25%">
+<col style="width: 25%">
+<col style="width: 25%">
+</colgroup>
+<thead>
+<tr class="header">
+<th style="text-align: left;">Variable</th>
+<th style="text-align: left;">Statcast Column</th>
+<th style="text-align: left;">Units / Categories</th>
+<th style="text-align: left;">Role in Analysis</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: left;"><strong>Exit Velocity</strong></td>
+<td style="text-align: left;"><code>launch_speed</code></td>
+<td style="text-align: left;">mph (<span class="math inline">\(60\text{--}118\text{ mph}\)</span>)</td>
+<td style="text-align: left;">Measures raw contact hardness off the bat</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;"><strong>Launch Angle</strong></td>
+<td style="text-align: left;"><code>launch_angle</code></td>
+<td style="text-align: left;">Degrees (<span class="math inline">\(-45^\circ\text{ to }75^\circ\)</span>)</td>
+<td style="text-align: left;">Determines trajectory (grounder, liner, fly ball)</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;"><strong>Bat Speed</strong></td>
+<td style="text-align: left;"><code>bat_speed</code></td>
+<td style="text-align: left;">mph (<span class="math inline">\(60\text{--}85\text{ mph}\)</span>)</td>
+<td style="text-align: left;">Captures batter swing effort at the sweet spot</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;"><strong>Pitch Type</strong></td>
+<td style="text-align: left;"><code>pitch_type</code></td>
+<td style="text-align: left;">Fastball, Slider, Changeup, Curveball</td>
+<td style="text-align: left;">Accounts for movement profile and deception</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;"><strong>Release Velocity</strong></td>
+<td style="text-align: left;"><code>release_speed</code></td>
+<td style="text-align: left;">mph (<span class="math inline">\(75\text{--}102\text{ mph}\)</span>)</td>
+<td style="text-align: left;">Measures incoming pitch speed out of the hand</td>
+</tr>
+</tbody>
+</table>
+<div class="stat-card">
+<p><strong>Why These Variables Matter Together:</strong></p>
 <ul>
-<li><strong>Exit Velocity (<code>launch_speed</code>, mph):</strong> The speed of the baseball immediately after it leaves the bat. Higher exit velocities give fielders less time to react and carry the ball farther, making it the primary indicator of hard contact.</li>
-<li><strong>Launch Angle (<code>launch_angle</code>, degrees):</strong> The vertical angle at which the ball leaves the bat. Ground balls have negative or low launch angles (<span class="math inline">\(&lt; 10^\circ\)</span>), line drives fall between <span class="math inline">\(10^\circ\)</span> and <span class="math inline">\(25^\circ\)</span>, fly balls sit between <span class="math inline">\(25^\circ\)</span> and <span class="math inline">\(50^\circ\)</span>, and pop-ups exceed <span class="math inline">\(50^\circ\)</span>. Pairing high exit velocity with an optimal launch angle (<span class="math inline">\(25^\circ\text{--}35^\circ\)</span>) produces the highest probability of a home run.</li>
-<li><strong>Bat Speed (<code>bat_speed</code>, mph):</strong> Introduced in recent Statcast tracking, bat speed measures how fast the sweet spot of the bat is moving at contact. It helps separate a batter’s raw swing effort from the quality of the point of contact.</li>
-<li><strong>Pitch Type (<code>pitch_type</code>):</strong> Categorizes the pitch thrown (e.g., Four-Seam Fastball, Slider, Changeup, Curveball). Different pitch movement profiles induce different swing paths and launch angles.</li>
-<li><strong>Release Velocity (<code>release_speed</code>, mph):</strong> The velocity of the pitch out of the pitcher’s hand, which affects both the timing window available to the hitter and the resulting exit velocity upon contact.</li>
+<li><strong>Exit Velocity (<code>launch_speed</code>) &amp; Launch Angle (<code>launch_angle</code>):</strong> Higher exit velocities give fielders less time to react and carry the ball farther, but hard contact hit straight into the ground (<span class="math inline">\(&lt; 5^\circ\)</span>) often results in an out. Pairing <span class="math inline">\(98+\text{ mph}\)</span> exit velocity with an optimal launch angle (<span class="math inline">\(24^\circ\text{--}38^\circ\)</span>) defines the <strong>Barrel Zone</strong>, where home runs are most frequent.</li>
+<li><strong>Bat Speed (<code>bat_speed</code>):</strong> Introduced in recent Statcast tracking, bat speed separates a batter’s raw swing effort from point-of-contact quality.</li>
+<li><strong>Pitch Type (<code>pitch_type</code>) &amp; Release Velocity (<code>release_speed</code>):</strong> Fastballs provide incoming kinetic energy that can boost exit velocity when squared up, whereas breaking and offspeed pitches disrupt timing and induce weaker launch angles.</li>
 </ul>
+</div>
+<hr>
 </section>
-<section id="data-visualization" class="level2">
-<h2 class="anchored" data-anchor-id="data-visualization">Data Visualization</h2>
+<section id="league-wide-data-visualization" class="level2">
+<h2 class="anchored" data-anchor-id="league-wide-data-visualization">📈 League-Wide Data Visualization</h2>
+<div class="callout callout-style-simple callout-tip no-icon">
+<div class="callout-body d-flex">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-body-container">
+<p><strong>Reading the Chart:</strong> Each point below represents a batted ball in play. Notice how <strong>Home Runs</strong> (red) cluster tightly inside the shaded <strong>Barrel Zone</strong>, while <strong>Singles</strong> (teal) form a low-trajectory line-drive band between <span class="math inline">\(5^\circ\)</span> and <span class="math inline">\(22^\circ\)</span>.</p>
+</div>
+</div>
+</div>
 <div class="cell">
 <div class="cell-output-display">
 <div>
 <figure class="figure">
-<p><img src="project_files/figure-html/unnamed-chunk-2-1.png" class="img-fluid figure-img" width="768"></p>
+<p><img src="project_files/figure-html/unnamed-chunk-2-1.png" class="img-fluid figure-img" width="816"></p>
 </figure>
 </div>
 </div>
 </div>
+<hr>
+</section>
+<section id="player-swing-explorer" class="level2">
+<h2 class="anchored" data-anchor-id="player-swing-explorer">🔍 2025 Player Swing Explorer</h2>
+<p>Use the dropdown menu below to inspect individual <strong>2025 Statcast swing outcomes</strong> across the regular season (April–September 2025) for four featured hitters: <strong>Kyle Stowers</strong>, <strong>Adley Rutschman</strong>, <strong>Aaron Judge</strong>, and <strong>Bobby Witt Jr.</strong></p>
+<div id="selector-bar" class="player-selector-bar">
+  <label for="player-select">⚾ Select a Hitter (2025 Season):</label>
+  <select id="player-select" class="player-select-dropdown" onchange="switchPlayer(this.value)">
+    <option value="stowers" selected="">Kyle Stowers (MIA • OF)</option>
+    <option value="rutschman">Adley Rutschman (BOS • C)</option>
+    <option value="judge">Aaron Judge (NYY • OF)</option>
+    <option value="witt">Bobby Witt Jr. (KC • SS)</option>
+  </select>
+</div>
+<div id="panel-stowers" class="player-panel active-player">
+<div class="stat-card">
+<strong>Kyle Stowers — Miami Marlins (2025 Scouting Profile):</strong> Power-oriented left-handed swing with elevated launch angles and strong pull-side barrel production.
+</div>
+<div class="cell">
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="project_files/figure-html/unnamed-chunk-5-1.png" class="img-fluid figure-img" width="816"></p>
+</figure>
+</div>
+</div>
+</div>
+</div>
+<div id="panel-rutschman" class="player-panel">
+<div class="stat-card">
+<strong>Adley Rutschman — Boston Red Sox (2025 Scouting Profile):</strong> Switch-hitting catcher with elite strike-zone control and consistent line-drive contact between 10° and 25°.
+</div>
+<div class="cell">
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="project_files/figure-html/unnamed-chunk-7-1.png" class="img-fluid figure-img" width="816"></p>
+</figure>
+</div>
+</div>
+</div>
+</div>
+<div id="panel-judge" class="player-panel">
+<div class="stat-card">
+<strong>Aaron Judge — New York Yankees (2025 Scouting Profile):</strong> Generational Statcast outlier combining 77+ mph bat speed with towering fly-ball exit velocities exceeding 115 mph.
+</div>
+<div class="cell">
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="project_files/figure-html/unnamed-chunk-9-1.png" class="img-fluid figure-img" width="816"></p>
+</figure>
+</div>
+</div>
+</div>
+</div>
+<div id="panel-witt" class="player-panel">
+<div class="stat-card">
+<strong>Bobby Witt Jr.&nbsp;— Kansas City Royals (2025 Scouting Profile):</strong> Explosive bat speed paired with a flat, line-drive plane that produces high-velocity singles, doubles, triples, and home runs.
+</div>
+<div class="cell">
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="project_files/figure-html/unnamed-chunk-11-1.png" class="img-fluid figure-img" width="816"></p>
+</figure>
+</div>
+</div>
+</div>
+</div>
+<script>
+const teamBannerColors = {
+  stowers: "linear-gradient(135deg, #00A3E0 0%, #0077a8 100%)",
+  rutschman: "linear-gradient(135deg, #BD3039 0%, #0C2340 100%)",
+  judge: "linear-gradient(135deg, #0C2340 0%, #1f3a60 100%)",
+  witt: "linear-gradient(135deg, #004687 0%, #BD9B60 100%)"
+};
+
+function switchPlayer(playerId) {
+  const panels = document.querySelectorAll('.player-panel');
+  panels.forEach(p => p.classList.remove('active-player'));
+  const target = document.getElementById('panel-' + playerId);
+  if (target) {
+    target.classList.add('active-player');
+  }
+  const bar = document.getElementById('selector-bar');
+  if (bar && teamBannerColors[playerId]) {
+    bar.style.background = teamBannerColors[playerId];
+  }
+}
+</script>
 </section>
 
 </main>
@@ -541,4 +832,5 @@ window.Quarto = {
 
 
 
+<script src="project_files/libs/quarto-html/zenscroll-min.js"></script>
 </body></html>
