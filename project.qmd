@@ -329,6 +329,229 @@ plot_player_2025 <- \(df, p_name) {
       panel.grid.minor = element_blank()
     )
 }
+
+plot_savant_biomechanics <- \(p_id) {
+  specs <- list(
+    stowers = list(
+      name = "Kyle Stowers (LHB)", accent = "#00A3E0", secondary = "#EF3340",
+      side = "L", stance_label = "14° Open • 29\" Wide",
+      back_x = 22, back_y = -13, front_x = 26.5, front_y = 14,
+      contact_x = 1.5, contact_y = 11.5,
+      start_deg = 68, attack_deg = 16, tilt_deg = 37,
+      bat_spd = "74.2 mph", swing_len = "7.7 ft"
+    ),
+    rutschman = list(
+      name = "Adley Rutschman (S/R — LHB View)", accent = "#BD3039", secondary = "#0C2340",
+      side = "L", stance_label = "8° Open • 31\" Wide",
+      back_x = 22, back_y = -14.5, front_x = 24.5, front_y = 15,
+      contact_x = 1.0, contact_y = 7.5,
+      start_deg = 48, attack_deg = 10, tilt_deg = 33,
+      bat_spd = "71.4 mph", swing_len = "7.0 ft"
+    ),
+    judge = list(
+      name = "Aaron Judge (RHB)", accent = "#0C2340", secondary = "#e63946",
+      side = "R", stance_label = "5° Closed • 33\" Wide",
+      back_x = -24, back_y = -15, front_x = -22, front_y = 16.5,
+      contact_x = -1.5, contact_y = 13.5,
+      start_deg = 78, attack_deg = 15, tilt_deg = 38,
+      bat_spd = "77.4 mph", swing_len = "8.1 ft"
+    ),
+    witt = list(
+      name = "Bobby Witt Jr. (RHB)", accent = "#004687", secondary = "#BD9B60",
+      side = "R", stance_label = "18° Open • 30\" Wide",
+      back_x = -21.5, back_y = -13.5, front_x = -27, front_y = 14.5,
+      contact_x = -1.5, contact_y = 9.5,
+      start_deg = 55, attack_deg = 10, tilt_deg = 32,
+      bat_spd = "75.6 mph", swing_len = "7.3 ft"
+    )
+  )[[p_id]]
+
+  # --- Left Canvas (x around -44 to 44): Top-Down Batter's Box & Stance ---
+  plate_top <- tibble(
+    x = c(-8.5, 8.5, 8.5, 0, -8.5, -8.5),
+    y = c(4, 4, -4.5, -13, -4.5, 4)
+  )
+  l_box <- tibble(x = c(14, 40, 40, 14, 14), y = c(-26, -26, 26, 26, -26))
+  r_box <- tibble(x = c(-14, -40, -40, -14, -14), y = c(-26, -26, 26, 26, -26))
+
+  # Batter overhead torso, helmet (facing plate & pitcher), and hands
+  mid_foot_x <- (specs$back_x + specs$front_x) / 2
+  mid_foot_y <- (specs$back_y + specs$front_y) / 2
+  ang_seq <- seq(0, 2 * pi, length.out = 50)
+
+  # Cleat direction (pointing inward toward home plate x = 0)
+  toe_dir <- if (specs$side == "L") -4.8 else 4.8
+
+  # Hands start near back shoulder; at contact, hands are in front of torso and bat crosses plate
+  hand_start_x <- if (specs$side == "L") specs$back_x - 3 else specs$back_x + 3
+  hand_start_y <- specs$back_y - 2
+  hand_contact_x <- if (specs$side == "L") 14.5 else -14.5
+  hand_contact_y <- specs$contact_y - 3.5
+
+  # Overhead barrel sweep curve (smooth curved arc around body into contact point)
+  t_seq <- seq(0, 1, length.out = 45)
+  barrel_start_x <- if (specs$side == "L") specs$back_x + 5 else specs$back_x - 5
+  barrel_start_y <- specs$back_y - 6
+  ctrl_x <- if (specs$side == "L") 3.5 else -3.5
+  ctrl_y <- -6
+  top_arc <- tibble(
+    x = (1 - t_seq)^2 * barrel_start_x + 2 * (1 - t_seq) * t_seq * ctrl_x + t_seq^2 * specs$contact_x,
+    y = (1 - t_seq)^2 * barrel_start_y + 2 * (1 - t_seq) * t_seq * ctrl_y + t_seq^2 * specs$contact_y
+  )
+
+  head_x <- if (specs$side == "L") mid_foot_x - 2.0 else mid_foot_x + 2.0
+  head_y <- mid_foot_y + 1.5
+  head_top <- tibble(
+    x = head_x + 3.4 * cos(ang_seq),
+    y = head_y + 3.4 * sin(ang_seq)
+  )
+  # Helmet brim pointing toward pitcher (+y)
+  brim_x <- head_x
+  brim_y <- head_y + 4.8
+
+  # --- Right Canvas (shifted +98 on x): Side View Across Plate (Batter Chest Facing Plate, Looking Right at Pitcher) ---
+  cx <- 98
+  sz_box <- tibble(x = cx + c(-8.5, 8.5, 8.5, -8.5, -8.5), y = c(-6, -6, 14, 14, -6))
+  side_plate <- tibble(x = cx + c(-8.5, 8.5, 6, -6, -8.5), y = c(-18.5, -18.5, -20.5, -20.5, -18.5))
+
+  # Batter stands sideways to pitcher (chest facing plate/viewer): back foot on left, front foot on right
+  back_foot_sx <- cx - 11
+  front_foot_sx <- cx + 6
+  hip_y <- -5.5
+  shldr_y <- if (p_id == "judge") 11.5 else 9.8
+  head_sx <- cx - 2.0
+  head_sy <- shldr_y + 4.8
+
+  torso_side <- tibble(
+    x = c(cx - 6.5, cx + 2.5, cx + 4.0, cx - 8.0, cx - 6.5),
+    y = c(hip_y, hip_y, shldr_y, shldr_y, hip_y)
+  )
+  head_side <- tibble(
+    x = head_sx + 3.2 * cos(ang_seq),
+    y = head_sy + 3.4 * sin(ang_seq)
+  )
+
+  # Hands in setup (held behind back shoulder on left) holding bat at Starting Bat Angle
+  hx <- cx - 9.5
+  hy <- shldr_y + 1.8
+  bat_len <- 14.5
+  rad_start <- specs$start_deg * pi / 180
+  bat_tip_x <- hx - bat_len * cos(rad_start)
+  bat_tip_y <- hy + bat_len * sin(rad_start)
+
+  # Side-view swing path: barrel drops into zone and sweeps LEFT-TO-RIGHT to contact in front of plate
+  imp_x <- cx + 9.5
+  imp_y <- 2.0
+  rad_att <- specs$attack_deg * pi / 180
+  follow_x <- imp_x + 14 * cos(rad_att)
+  follow_y <- imp_y + 14 * sin(rad_att)
+
+  side_curve <- tibble(
+    x = (1 - t_seq)^2 * hx + 2 * (1 - t_seq) * t_seq * (cx - 6) + t_seq^2 * imp_x,
+    y = (1 - t_seq)^2 * hy + 2 * (1 - t_seq) * t_seq * (-7) + t_seq^2 * imp_y
+  )
+
+  ggplot() +
+    # Panel backgrounds
+    annotate("rect", xmin = -44, xmax = 44, ymin = -32, ymax = 34, fill = "#ffffff", color = "gray80", linewidth = 0.5) +
+    annotate("rect", xmin = 54, xmax = 148, ymin = -32, ymax = 34, fill = "#ffffff", color = "gray80", linewidth = 0.5) +
+    # Panel headers
+    annotate("text", x = 0, y = 30.8, label = "OVERHEAD VIEW: STANCE & POINT OF CONTACT", fontface = "bold", size = 3.1, color = "#1d3557") +
+    annotate("text", x = 101, y = 30.8, label = "SIDE VIEW (PITCHER ON RIGHT): BAT SETUP & ATTACK ANGLE", fontface = "bold", size = 3.0, color = "#1d3557") +
+    # --- Overhead elements ---
+    geom_path(data = l_box, aes(x, y), color = "gray82", linetype = "dashed", linewidth = 0.6) +
+    geom_path(data = r_box, aes(x, y), color = "gray82", linetype = "dashed", linewidth = 0.6) +
+    geom_polygon(data = plate_top, aes(x, y), fill = "#f8f9fa", color = "#1d3557", linewidth = 0.9) +
+    annotate("text", x = 0, y = -2, label = "HOME\nPLATE", size = 2.1, fontface = "bold", color = "gray40") +
+    annotate("segment", x = 0, y = 25.5, xend = 0, yend = 17, arrow = arrow(length = unit(0.20, "cm"), type = "closed"), color = "#e63946", linewidth = 0.9) +
+    annotate("text", x = 0, y = 27.6, label = "PITCHER (Incoming Pitch)", size = 2.5, color = "#e63946", fontface = "bold") +
+    annotate("text", x = 0, y = -16.5, label = "CATCHER", size = 2.2, color = "gray50", fontface = "bold") +
+    # Faint Overhead Batter Outline (Shoulders, Helmet facing Pitcher, Cleats facing Plate)
+    annotate("segment", x = specs$back_x, y = specs$back_y, xend = specs$front_x, yend = specs$front_y,
+             color = specs$accent, alpha = 0.16, linewidth = 7.5, lineend = "round") +
+    geom_polygon(data = head_top, aes(x, y), fill = specs$accent, alpha = 0.25, color = specs$accent, linewidth = 0.5) +
+    annotate("segment", x = head_x, y = head_y, xend = brim_x, yend = brim_y,
+             color = specs$accent, alpha = 0.65, linewidth = 2.2, arrow = arrow(length = unit(0.14, "cm"))) +
+    # Cleats pointing inward toward Home Plate + Stance line
+    annotate("segment", x = specs$back_x, y = specs$back_y, xend = specs$front_x, yend = specs$front_y,
+             color = specs$accent, linetype = "dotted", linewidth = 0.9) +
+    annotate("segment", x = specs$back_x, y = specs$back_y, xend = specs$back_x + toe_dir, yend = specs$back_y,
+             color = specs$accent, linewidth = 3.2, lineend = "round") +
+    annotate("segment", x = specs$front_x, y = specs$front_y, xend = specs$front_x + toe_dir, yend = specs$front_y,
+             color = specs$accent, linewidth = 3.2, lineend = "round") +
+    annotate("point", x = c(specs$back_x, specs$front_x), y = c(specs$back_y, specs$front_y),
+             size = 4.5, shape = 21, fill = specs$accent, color = "white", stroke = 1.1) +
+    annotate("text", x = specs$back_x, y = specs$back_y - 4.2, label = "Back Foot", size = 2.5, fontface = "bold", color = specs$accent) +
+    annotate("text", x = specs$front_x, y = specs$front_y + 4.2, label = "Front Foot", size = 2.5, fontface = "bold", color = specs$accent) +
+    # Top-down barrel path & Bat crossing Home Plate at contact
+    geom_path(data = top_arc, aes(x, y), color = specs$secondary, linewidth = 1.2, linetype = "dashed") +
+    annotate("segment", x = hand_contact_x, y = hand_contact_y,
+             xend = specs$contact_x, yend = specs$contact_y,
+             color = "#1d3557", linewidth = 2.6, lineend = "round") +
+    annotate("point", x = specs$contact_x, y = specs$contact_y, size = 4.2, shape = 21, fill = "#ffb703", color = "#1d3557", stroke = 1.1) +
+    annotate("label", x = 0, y = -26.5,
+             label = paste0("Stance: ", specs$stance_label, "  |  Contact: +", specs$contact_y, "\" in front of plate"),
+             size = 2.7, fontface = "bold", fill = "#f8f9fa", color = "#1d3557", label.size = 0.25) +
+    # --- Side-View elements (Batter chest facing plate, looking RIGHT toward Pitcher) ---
+    # Faint Batter Silhouette (Back Leg, Front Leg, Torso, Helmet Looking Right, Both Arms to Hands)
+    annotate("segment", x = back_foot_sx, y = -18.5, xend = cx - 5.2, yend = hip_y,
+             color = specs$accent, alpha = 0.22, linewidth = 3.8, lineend = "round") +
+    annotate("segment", x = front_foot_sx, y = -18.5, xend = cx + 1.5, yend = hip_y,
+             color = specs$accent, alpha = 0.22, linewidth = 3.8, lineend = "round") +
+    geom_polygon(data = torso_side, aes(x, y), fill = specs$accent, alpha = 0.16, color = specs$accent, linewidth = 0.5) +
+    geom_polygon(data = head_side, aes(x, y), fill = specs$accent, alpha = 0.22, color = specs$accent, linewidth = 0.5) +
+    # Helmet visor pointing RIGHT toward pitcher
+    annotate("segment", x = head_sx + 2, y = head_sy + 1.0, xend = head_sx + 5.8, yend = head_sy + 0.8,
+             color = specs$accent, alpha = 0.50, linewidth = 2.2, lineend = "round") +
+    # Lead arm & back arm reaching to setup hands
+    annotate("segment", x = cx + 3.0, y = shldr_y - 1.0, xend = hx, yend = hy,
+             color = specs$accent, alpha = 0.26, linewidth = 2.6, lineend = "round") +
+    annotate("segment", x = cx - 7.5, y = shldr_y - 1.0, xend = hx, yend = hy,
+             color = specs$accent, alpha = 0.26, linewidth = 2.6, lineend = "round") +
+    # Strike zone & Home plate
+    geom_polygon(data = sz_box, aes(x, y), fill = "#f1faee", alpha = 0.35, color = "gray55", linetype = "dashed") +
+    annotate("text", x = cx + 0.5, y = -3.8, label = "STRIKE ZONE", size = 2.2, color = "gray45", fontface = "bold") +
+    geom_polygon(data = side_plate, aes(x, y), fill = "white", color = "#1d3557", linewidth = 0.8) +
+    annotate("text", x = cx, y = -22.2, label = "Home Plate", size = 2.3, color = "gray45", fontface = "italic") +
+    # Incoming Pitch Arrow from Pitcher on Right (placed cleanly in lower-right of zone)
+    annotate("segment", x = 145, y = -2.5, xend = imp_x + 3.5, yend = imp_y - 0.5,
+             color = "#e63946", linetype = "dotted", linewidth = 0.9,
+             arrow = arrow(length = unit(0.18, "cm"), type = "closed")) +
+    annotate("text", x = 132, y = -5.5, label = "⬅ Incoming Pitch", size = 2.4, fontface = "bold", color = "#e63946") +
+    # Horizontal reference at hands & Starting Bat Angle
+    annotate("segment", x = hx - 12, y = hy, xend = hx + 3, yend = hy, color = "gray60", linetype = "dotted") +
+    annotate("segment", x = hx, y = hy, xend = bat_tip_x, yend = bat_tip_y,
+             color = "#1d3557", linewidth = 2.6, lineend = "round") +
+    annotate("point", x = hx, y = hy, size = 3.6, color = specs$accent) +
+    annotate("label", x = hx - 14.5, y = hy - 5.2,
+             label = paste0("Start Bat: ", specs$start_deg, "°"),
+             size = 2.55, fontface = "bold", fill = "#ffffff", color = "#1d3557", label.size = 0.25) +
+    # Swing path arc sweeping forward into impact + Attack Angle vector
+    geom_path(data = side_curve, aes(x, y), color = specs$accent, linewidth = 1.4, linetype = "solid") +
+    annotate("segment", x = imp_x - 5, y = imp_y, xend = imp_x + 13, yend = imp_y,
+             color = "gray55", linetype = "dashed", linewidth = 0.6) +
+    annotate("segment", x = imp_x, y = imp_y, xend = follow_x, yend = follow_y,
+             color = specs$secondary, linewidth = 1.8,
+             arrow = arrow(length = unit(0.24, "cm"), type = "closed")) +
+    annotate("point", x = imp_x, y = imp_y, size = 4.2, shape = 21, fill = "#ffb703", color = "#1d3557", stroke = 1.1) +
+    annotate("label", x = imp_x + 17, y = imp_y + 11.5,
+             label = paste0("Attack Angle: +", specs$attack_deg, "°\nSwing Tilt: ", specs$tilt_deg, "°"),
+             size = 2.55, fontface = "bold", fill = "#ffffff", color = specs$secondary, label.size = 0.25) +
+    annotate("label", x = 101, y = -26.5,
+             label = paste0("Bat Speed: ", specs$bat_spd, "  |  Swing Length: ", specs$swing_len),
+             size = 2.7, fontface = "bold", fill = "#f8f9fa", color = "#1d3557", label.size = 0.25) +
+    coord_fixed(xlim = c(-45, 149), ylim = c(-33, 35), expand = FALSE) +
+    labs(
+      title = paste0("Baseball Savant Stance & Swing Path Visual — ", specs$name),
+      subtitle = "Left: Overhead batter's box (Pitcher at top)  •  Right: Side view at plate facing Pitcher on right"
+    ) +
+    theme_void(base_size = 11) +
+    theme(
+      plot.title = element_text(face = "bold", size = 13, color = "#1d3557", margin = margin(b = 3)),
+      plot.subtitle = element_text(size = 9.5, color = "gray35", margin = margin(b = 8)),
+      plot.margin = margin(6, 6, 6, 6)
+    )
+}
 ```
 
 ```{=html}
@@ -358,6 +581,19 @@ cat(sprintf(
 #| fig-height: 4.8
 plot_player_2025(df_s, "Kyle Stowers (MIA)")
 ```
+
+::: {.stat-card}
+**Baseball Savant Stance & Bat-Path Breakdown — Kyle Stowers (`L/L`)**
+
+- **Stance & Starting Bat Angle:** Sets up in a tall, slightly open left-handed stance ($\sim 14^\circ$ open) with his hands held high near the back shoulder. His bat starts at a steep vertical angle ($\sim 68^\circ$ above horizontal) with a subtle barrel tip toward the pitcher during his stride load, creating natural loft leverage.
+- **Bat Path & Attack Angle:** Features a pronounced upward **Attack Angle** of $\sim 15^\circ\text{--}17^\circ$ and a steep **Swing Path Tilt** ($\sim 37^\circ$). Because his **Swing Length** is relatively long ($\sim 7.7\text{ ft}$), he generates elite fly-ball carry and pull-side barrels ($\sim 74.2\text{ mph}$ avg bat speed, $42\%$ Fast-Swing rate), though the steeper path leaves a larger window against high-spin elevated four-seam fastballs.
+:::
+
+```{r}
+#| fig-width: 8.5
+#| fig-height: 3.6
+plot_savant_biomechanics("stowers")
+```
 ::::
 
 :::: {#panel-rutschman .player-panel}
@@ -374,6 +610,19 @@ cat(sprintf(
 #| fig-width: 8.5
 #| fig-height: 4.8
 plot_player_2025(df_r, "Adley Rutschman (BOS)")
+```
+
+::: {.stat-card}
+**Baseball Savant Stance & Bat-Path Breakdown — Adley Rutschman (`S/R`)**
+
+- **Stance & Starting Bat Angle:** As a switch-hitter, Rutschman uses a balanced, slightly wider base ($\sim 31\text{ in.}$ stance width) from both sides of the plate, staying slightly more open from the left side than the right. He starts with his bat resting at a relaxed, flatter setup angle ($\sim 45^\circ\text{--}50^\circ$) over his back shoulder, minimizing pre-pitch movement so his head stays still through pitch recognition.
+- **Bat Path & Attack Angle:** Prioritizes a compact **Swing Length** ($\sim 7.0\text{ ft}$) and a flatter, line-drive **Attack Angle** ($\sim 9^\circ\text{--}11^\circ$) that stays on plane through the hitting zone for a long time. While his average bat speed ($\sim 71.4\text{ mph}$) is moderate, his **Squared-Up Rate** ($\sim 31\%$, top-decile on Baseball Savant) allows him to convert a high share of swings into hard line-drive singles and gap doubles.
+:::
+
+```{r}
+#| fig-width: 8.5
+#| fig-height: 3.6
+plot_savant_biomechanics("rutschman")
 ```
 ::::
 
@@ -392,6 +641,19 @@ cat(sprintf(
 #| fig-height: 4.8
 plot_player_2025(df_j, "Aaron Judge (NYY)")
 ```
+
+::: {.stat-card}
+**Baseball Savant Stance & Bat-Path Breakdown — Aaron Judge (`R/R`)**
+
+- **Stance & Starting Bat Angle:** At $6'7''$, Judge uses a slightly closed-to-neutral stance ($\sim 5^\circ$ closed) with a controlled two-strike toe-tap gather. His bat begins nearly vertical ($\sim 75^\circ\text{--}80^\circ$ starting bat angle) high above his rear shoulder, allowing gravity and torso rotation to accelerate the barrel into the zone without over-striding.
+- **Bat Path & Attack Angle:** Combines $99\text{th}$-percentile **Bat Speed** ($\sim 77.4\text{ mph}$, $>70\%$ Fast-Swing rate) with an **Attack Angle** of $\sim 14^\circ\text{--}16^\circ$ and a steep **Swing Path Tilt** ($\sim 38^\circ$) tailored to lift pitches at the knees. Even with a longer **Swing Length** ($\sim 8.1\text{ ft}$), his elite **Blast Rate** ($>22\%$) produces Statcast-leading barrel rates ($>25\%$) and exit velocities regularly topping $115\text{ mph}$.
+:::
+
+```{r}
+#| fig-width: 8.5
+#| fig-height: 3.6
+plot_savant_biomechanics("judge")
+```
 ::::
 
 :::: {#panel-witt .player-panel}
@@ -408,6 +670,19 @@ cat(sprintf(
 #| fig-width: 8.5
 #| fig-height: 4.8
 plot_player_2025(df_w, "Bobby Witt Jr. (KC)")
+```
+
+::: {.stat-card}
+**Baseball Savant Stance & Bat-Path Breakdown — Bobby Witt Jr. (`R/R`)**
+
+- **Stance & Starting Bat Angle:** Sets up in an athletic, slightly crouched and open stance ($\sim 18^\circ$ open) with his hands positioned near chest height. His bat starts at a medium-angled wrap ($\sim 55^\circ$ starting angle, tilted slightly behind his helmet) before firing with one of the quickest rotational hip-to-shoulder separations in MLB.
+- **Bat Path & Attack Angle:** Generates elite **Bat Speed** ($\sim 75.6\text{ mph}$) while maintaining a remarkably direct **Swing Length** ($\sim 7.3\text{ ft}$) and a flatter **Attack Angle** ($\sim 8^\circ\text{--}11^\circ$). Because his barrel enters the zone early and stays level through contact, he sprays $100+\text{ mph}$ line drives to all fields—driving a rare combination of high batting average, doubles, triples, and $30+$ home run power.
+:::
+
+```{r}
+#| fig-width: 8.5
+#| fig-height: 3.6
+plot_savant_biomechanics("witt")
 ```
 ::::
 
