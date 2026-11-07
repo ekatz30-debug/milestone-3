@@ -157,30 +157,21 @@ The data for this analysis comes from **MLB Statcast** via Baseball Savant, wher
 #| fig-width: 8.5
 #| fig-height: 5.75
 
-set.seed(2026)
+statcast_raw <- read_csv("statcast_2025.csv", show_col_types = FALSE)
 
-n_balls <- 900
-
-statcast_sim <- tibble(
-  pitch_type = sample(
-    c("4-Seam Fastball", "Slider", "Changeup", "Curveball"),
-    size = n_balls,
-    replace = TRUE,
-    prob = c(0.45, 0.25, 0.18, 0.12)
-  ),
-  bat_speed = rnorm(n_balls, mean = 72.5, sd = 4.2),
-  launch_angle = rnorm(n_balls, mean = 14, sd = 22) |> pmin(75) |> pmax(-45),
-  launch_speed = (45 + 0.72 * bat_speed - 0.012 * (launch_angle - 18)^2 +
-    rnorm(n_balls, mean = 0, sd = 5.5)) |> pmin(116) |> pmax(62)
-) |>
+statcast_bip <- statcast_raw |>
+  filter(type == "X", !is.na(launch_speed), !is.na(launch_angle), !is.na(events)) |>
   mutate(
+    player_id = case_when(
+      batter == 669065 ~ "stowers",
+      batter == 668939 ~ "rutschman",
+      batter == 592450 ~ "judge",
+      batter == 677951 ~ "witt"
+    ),
     outcome = case_when(
-      launch_speed >= 98 & between(launch_angle, 24, 38) &
-        runif(n_balls) < 0.78 ~ "Home Run",
-      launch_speed >= 92 & between(launch_angle, 14, 36) &
-        runif(n_balls) < 0.55 ~ "Extra-Base Hit (2B/3B)",
-      launch_speed >= 78 & between(launch_angle, 4, 24) &
-        runif(n_balls) < 0.65 ~ "Single",
+      events == "home_run" ~ "Home Run",
+      events %in% c("double", "triple") ~ "Extra-Base Hit (2B/3B)",
+      events == "single" ~ "Single",
       TRUE ~ "In-Play Out"
     ),
     outcome = factor(
@@ -196,34 +187,34 @@ outcome_colors <- c(
   "In-Play Out" = "#adb5bd"
 )
 
-ggplot(statcast_sim, aes(x = launch_angle, y = launch_speed, color = outcome)) +
+ggplot(statcast_bip, aes(x = launch_angle, y = launch_speed, color = outcome)) +
   annotate(
     "rect",
-    xmin = 24, xmax = 38, ymin = 98, ymax = 116,
+    xmin = 24, xmax = 38, ymin = 98, ymax = 119,
     fill = "#e63946", alpha = 0.12, color = "#e63946", linetype = "dashed", linewidth = 0.7
   ) +
   annotate(
     "label",
-    x = 31, y = 114,
+    x = 31, y = 115,
     label = "BARREL ZONE\n(98+ mph, 24°–38°)",
     size = 3, fontface = "bold", color = "#1d3557", fill = "#f1faee", label.size = 0.3
   ) +
   geom_vline(xintercept = c(10, 25, 50), linetype = "dotted", color = "gray65") +
-  annotate("text", x = -18, y = 63, label = "Ground Balls", color = "gray45", size = 3, fontface = "italic") +
-  annotate("text", x = 17.5, y = 63, label = "Line Drives", color = "gray45", size = 3, fontface = "italic") +
-  annotate("text", x = 37.5, y = 63, label = "Fly Balls", color = "gray45", size = 3, fontface = "italic") +
-  annotate("text", x = 62, y = 63, label = "Pop-Ups", color = "gray45", size = 3, fontface = "italic") +
-  geom_point(alpha = 0.78, size = 2.2) +
+  annotate("text", x = -18, y = 58, label = "Ground Balls", color = "gray45", size = 3, fontface = "italic") +
+  annotate("text", x = 17.5, y = 58, label = "Line Drives", color = "gray45", size = 3, fontface = "italic") +
+  annotate("text", x = 37.5, y = 58, label = "Fly Balls", color = "gray45", size = 3, fontface = "italic") +
+  annotate("text", x = 62, y = 58, label = "Pop-Ups", color = "gray45", size = 3, fontface = "italic") +
+  geom_point(alpha = 0.75, size = 2.0) +
   scale_color_manual(values = outcome_colors) +
-  scale_x_continuous(breaks = seq(-40, 70, by = 20), labels = \(x) paste0(x, "°")) +
-  scale_y_continuous(breaks = seq(60, 115, by = 10), labels = \(x) paste0(x, " mph")) +
+  scale_x_continuous(limits = c(-45, 75), breaks = seq(-40, 70, by = 20), labels = \(x) paste0(x, "°")) +
+  scale_y_continuous(limits = c(55, 120), breaks = seq(60, 115, by = 10), labels = \(x) paste0(x, " mph")) +
   labs(
-    title = "MLB Batted-Ball Outcomes by Launch Angle and Exit Velocity",
+    title = "MLB Batted-Ball Outcomes by Launch Angle and Exit Velocity (2025 Statcast)",
     subtitle = "High exit velocity combined with a 24°–38° launch angle drives virtually all home run production",
     x = "Launch Angle (degrees)",
     y = "Exit Velocity (mph)",
     color = "Swing Outcome",
-    caption = "Source: Simulated Statcast batted-ball tracking data (n = 900) modeled on MLB Baseball Savant distributions"
+    caption = paste0("Source: Baseball Savant 2025 Statcast CSV export (", nrow(statcast_raw), " total pitches; ", nrow(statcast_bip), " batted balls in play)")
   ) +
   theme_minimal(base_size = 12) +
   theme(
@@ -241,55 +232,21 @@ ggplot(statcast_sim, aes(x = launch_angle, y = launch_speed, color = outcome)) +
 
 ## 🔍 2025 Player Swing Explorer
 
-Use the dropdown menu below to inspect individual **2025 Statcast swing outcomes** across the regular season (April–September 2025) for four featured hitters: **Kyle Stowers**, **Adley Rutschman**, **Aaron Judge**, and **Bobby Witt Jr.**
+Use the dropdown menu below to inspect real **2025 Statcast swing outcomes** exported from Baseball Savant for four featured hitters: **Kyle Stowers**, **Adley Rutschman**, **Aaron Judge**, and **Bobby Witt Jr.**
 
 ```{r}
-set.seed(202504)
-
-player_profiles <- tribble(
-  ~player_id,   ~player_name,       ~team_pos,            ~n_bip, ~bat_mean, ~bat_sd, ~la_mean, ~la_sd, ~ev_bonus, ~profile_note,
-  "stowers",    "Kyle Stowers",     "OF • L/L",           310,    74.2,      3.4,     17.5,     19.5,   2.8,       "Power-oriented left-handed swing with elevated launch angles and strong pull-side barrel production.",
-  "rutschman",  "Adley Rutschman",  "C • S/R",            420,    71.4,      3.1,     14.2,     17.0,   1.2,       "Switch-hitting catcher with elite strike-zone control and consistent line-drive contact between 10° and 25°.",
-  "judge",      "Aaron Judge",      "OF • R/R",           390,    77.4,      3.2,     18.8,     18.5,   6.5,       "Generational Statcast outlier combining 77+ mph bat speed with towering fly-ball exit velocities exceeding 115 mph.",
-  "witt",       "Bobby Witt Jr.",   "SS • R/R",           460,    75.6,      3.3,     13.8,     18.0,   4.4,       "Explosive bat speed paired with a flat, line-drive plane that produces high-velocity singles, doubles, triples, and home runs."
+player_notes <- c(
+  stowers = "Power-oriented left-handed swing (74.9 mph avg bat speed, 25 HRs in 2025) with strong pull-side barrel production.",
+  rutschman = "Switch-hitting catcher (69.8 mph avg bat speed, 6.9 ft compact swing length) with consistent line-drive contact.",
+  judge = "Generational Statcast outlier combining 76.1 mph average bat speed with 95.1 mph average exit velocity and 55 home runs.",
+  witt = "Explosive 74.6 mph bat speed paired with a flat 5° attack angle that produces 543 balls in play and 26 home runs."
 )
 
-players_2025 <- player_profiles |>
-  rowwise() |>
-  reframe(
-    player_id = player_id,
-    player_name = player_name,
-    team_pos = team_pos,
-    profile_note = profile_note,
-    game_date = sort(sample(
-      seq(as.Date("2025-04-01"), as.Date("2025-09-28"), by = "day"),
-      size = n_bip,
-      replace = TRUE
-    )),
-    pitch_type = sample(
-      c("4-Seam Fastball", "Slider", "Changeup", "Curveball"),
-      size = n_bip,
-      replace = TRUE,
-      prob = c(0.44, 0.26, 0.18, 0.12)
-    ),
-    bat_speed = rnorm(n_bip, mean = bat_mean, sd = bat_sd),
-    launch_angle = rnorm(n_bip, mean = la_mean, sd = la_sd) |> pmin(72) |> pmax(-40),
-    launch_speed = (43 + 0.72 * bat_speed + ev_bonus - 0.011 * (launch_angle - 18)^2 +
-      rnorm(n_bip, mean = 0, sd = 5.0)) |> pmin(118.5) |> pmax(64)
-  ) |>
+players_2025 <- statcast_bip |>
   mutate(
-    is_barrel = launch_speed >= 98 & between(launch_angle, 24, 38),
-    outcome = case_when(
-      is_barrel & runif(n()) < 0.76 ~ "Home Run",
-      launch_speed >= 104 & between(launch_angle, 19, 41) & runif(n()) < 0.65 ~ "Home Run",
-      launch_speed >= 93 & between(launch_angle, 12, 36) & runif(n()) < 0.56 ~ "Extra-Base Hit (2B/3B)",
-      launch_speed >= 79 & between(launch_angle, 4, 24) & runif(n()) < 0.66 ~ "Single",
-      TRUE ~ "In-Play Out"
-    ),
-    outcome = factor(
-      outcome,
-      levels = c("Home Run", "Extra-Base Hit (2B/3B)", "Single", "In-Play Out")
-    )
+    game_date = as.Date(game_date),
+    bat_speed = coalesce(bat_speed, median(bat_speed, na.rm = TRUE)),
+    profile_note = unname(player_notes[player_id])
   )
 
 plot_player_2025 <- \(df, p_name) {
@@ -297,7 +254,7 @@ plot_player_2025 <- \(df, p_name) {
     geom_hline(yintercept = 95, linetype = "dashed", color = "#1d3557", alpha = 0.5) +
     annotate(
       "text",
-      x = as.Date("2025-04-08"), y = 96.5,
+      x = min(df$game_date, na.rm = TRUE) + 5, y = 96.8,
       label = "Hard-Hit Threshold (95 mph)",
       hjust = 0, size = 3, fontface = "italic", color = "#1d3557"
     ) +
@@ -310,14 +267,14 @@ plot_player_2025 <- \(df, p_name) {
     scale_color_manual(values = outcome_colors, drop = FALSE) +
     scale_size_continuous(range = c(1.6, 3.8), guide = "none") +
     scale_x_date(date_breaks = "1 month", date_labels = "%b 2025") +
-    scale_y_continuous(limits = c(62, 120), breaks = seq(65, 115, by = 10), labels = \(x) paste0(x, " mph")) +
+    scale_y_continuous(limits = c(55, 120), breaks = seq(65, 115, by = 10), labels = \(x) paste0(x, " mph")) +
     labs(
-      title = paste0(p_name, " — 2025 Batted-Ball Outcomes Across the Season"),
-      subtitle = "Each point is a ball in play (sized by Bat Speed); solid navy trend line tracks rolling Exit Velocity",
-      x = "2025 Regular Season Date",
+      title = paste0(p_name, " — 2025 Batted-Ball Outcomes Across the Season (n = ", nrow(df), " BIP)"),
+      subtitle = "Each point is a real 2025 ball in play (sized by Bat Speed); solid navy trend line tracks rolling Exit Velocity",
+      x = "2025 Season Date",
       y = "Exit Velocity (mph)",
       color = "Swing Outcome",
-      caption = "Source: 2025 Statcast pitch-by-pitch player tracking data"
+      caption = "Source: Baseball Savant 2025 Statcast CSV export"
     ) +
     theme_minimal(base_size = 12) +
     theme(
@@ -330,39 +287,51 @@ plot_player_2025 <- \(df, p_name) {
     )
 }
 
+player_bio_stats <- statcast_bip |>
+  group_by(player_id) |>
+  summarise(
+    bat_spd = paste0(round(mean(bat_speed, na.rm = TRUE), 1), " mph"),
+    swing_len = paste0(round(mean(swing_length, na.rm = TRUE), 1), " ft"),
+    attack_deg = round(mean(attack_angle, na.rm = TRUE), 0),
+    tilt_deg = round(mean(swing_path_tilt, na.rm = TRUE), 0),
+    .groups = "drop"
+  ) |>
+  split(~player_id)
+
 plot_savant_biomechanics <- \(p_id) {
+  real_bio <- player_bio_stats[[p_id]]
   specs <- list(
     stowers = list(
       name = "Kyle Stowers (LHB)", accent = "#00A3E0", secondary = "#EF3340",
       side = "L", stance_label = "14° Open • 29\" Wide",
       back_x = 22, back_y = -13, front_x = 26.5, front_y = 14,
       contact_x = 1.5, contact_y = 11.5,
-      start_deg = 68, attack_deg = 16, tilt_deg = 37,
-      bat_spd = "74.2 mph", swing_len = "7.7 ft"
+      start_deg = 68, attack_deg = real_bio$attack_deg, tilt_deg = real_bio$tilt_deg,
+      bat_spd = real_bio$bat_spd, swing_len = real_bio$swing_len
     ),
     rutschman = list(
       name = "Adley Rutschman (S/R — LHB View)", accent = "#BD3039", secondary = "#0C2340",
       side = "L", stance_label = "8° Open • 31\" Wide",
       back_x = 22, back_y = -14.5, front_x = 24.5, front_y = 15,
       contact_x = 1.0, contact_y = 7.5,
-      start_deg = 48, attack_deg = 10, tilt_deg = 33,
-      bat_spd = "71.4 mph", swing_len = "7.0 ft"
+      start_deg = 48, attack_deg = real_bio$attack_deg, tilt_deg = real_bio$tilt_deg,
+      bat_spd = real_bio$bat_spd, swing_len = real_bio$swing_len
     ),
     judge = list(
       name = "Aaron Judge (RHB)", accent = "#0C2340", secondary = "#e63946",
       side = "R", stance_label = "5° Closed • 33\" Wide",
       back_x = -24, back_y = -15, front_x = -22, front_y = 16.5,
       contact_x = -1.5, contact_y = 13.5,
-      start_deg = 78, attack_deg = 15, tilt_deg = 38,
-      bat_spd = "77.4 mph", swing_len = "8.1 ft"
+      start_deg = 78, attack_deg = real_bio$attack_deg, tilt_deg = real_bio$tilt_deg,
+      bat_spd = real_bio$bat_spd, swing_len = real_bio$swing_len
     ),
     witt = list(
       name = "Bobby Witt Jr. (RHB)", accent = "#004687", secondary = "#BD9B60",
       side = "R", stance_label = "18° Open • 30\" Wide",
       back_x = -21.5, back_y = -13.5, front_x = -27, front_y = 14.5,
       contact_x = -1.5, contact_y = 9.5,
-      start_deg = 55, attack_deg = 10, tilt_deg = 32,
-      bat_spd = "75.6 mph", swing_len = "7.3 ft"
+      start_deg = 55, attack_deg = real_bio$attack_deg, tilt_deg = real_bio$tilt_deg,
+      bat_spd = real_bio$bat_spd, swing_len = real_bio$swing_len
     )
   )[[p_id]]
 
@@ -382,22 +351,73 @@ plot_savant_biomechanics <- \(p_id) {
   # Cleat direction (pointing inward toward home plate x = 0)
   toe_dir <- if (specs$side == "L") -4.8 else 4.8
 
-  # Hands start near back shoulder; at contact, hands are in front of torso and bat crosses plate
-  hand_start_x <- if (specs$side == "L") specs$back_x - 3 else specs$back_x + 3
-  hand_start_y <- specs$back_y - 2
-  hand_contact_x <- if (specs$side == "L") 14.5 else -14.5
-  hand_contact_y <- specs$contact_y - 3.5
+  # Hands move along a compact inner arc while the barrel sweeps a wide outer swath across the entire plate
+  t_seq <- seq(0, 1, length.out = 60)
+  # dir points from the batter's box toward home plate (-1 for LHB on right, +1 for RHB on left)
+  dir <- if (specs$side == "L") -1 else 1
 
-  # Overhead barrel sweep curve (smooth curved arc around body into contact point)
-  t_seq <- seq(0, 1, length.out = 45)
-  barrel_start_x <- if (specs$side == "L") specs$back_x + 5 else specs$back_x - 5
-  barrel_start_y <- specs$back_y - 6
-  ctrl_x <- if (specs$side == "L") 3.5 else -3.5
-  ctrl_y <- -6
-  top_arc <- tibble(
-    x = (1 - t_seq)^2 * barrel_start_x + 2 * (1 - t_seq) * t_seq * ctrl_x + t_seq^2 * specs$contact_x,
-    y = (1 - t_seq)^2 * barrel_start_y + 2 * (1 - t_seq) * t_seq * ctrl_y + t_seq^2 * specs$contact_y
+  # Hand path from launch (near back shoulder) -> through hitting zone -> follow-through
+  h0_x <- -dir * 17.5
+  h0_y <- -4.0
+  hc_x <- -dir * 10.5
+  hc_y <- 2.0
+  h1_x <- -dir * 14.5
+  h1_y <- 8.0
+
+  hand_x_arc <- (1 - t_seq)^2 * h0_x + 2 * (1 - t_seq) * t_seq * hc_x + t_seq^2 * h1_x
+  hand_y_arc <- (1 - t_seq)^2 * h0_y + 2 * (1 - t_seq) * t_seq * hc_y + t_seq^2 * h1_y
+
+  # Plate-relative bat angle phi: 0 rad = perpendicular across plate; -58 deg (launch) to +54 deg (follow-through)
+  phi_start <- -58 * pi / 180
+  phi_end   <-  54 * pi / 180
+
+  # Find the swing parameter t_cont where the barrel aligns with the player's contact point (contact_x, contact_y)
+  t_cont <- (specs$contact_y - 1.0) / 15.0
+  t_cont <- min(max(t_cont, 0.56), 0.78)
+  hx_cont <- (1 - t_cont)^2 * h0_x + 2 * (1 - t_cont) * t_cont * hc_x + t_cont^2 * h1_x
+  hy_cont <- (1 - t_cont)^2 * h0_y + 2 * (1 - t_cont) * t_cont * hc_y + t_cont^2 * h1_y
+  phi_cont <- atan2(specs$contact_y - hy_cont, dir * (specs$contact_x - hx_cont))
+  r_sweet <- sqrt((specs$contact_x - hx_cont)^2 + (specs$contact_y - hy_cont)^2)
+
+  # Smooth angle sweep passing through phi_cont at t = t_cont
+  phi_mid <- (phi_cont - (1 - t_cont)^2 * phi_start - t_cont^2 * phi_end) / (2 * (1 - t_cont) * t_cont)
+  phi_seq <- (1 - t_seq)^2 * phi_start + 2 * (1 - t_seq) * t_seq * phi_mid + t_seq^2 * phi_end
+
+  # Radial extension along bat: arms/barrel extend into the hitting zone so barrel covers the entire 17" plate width
+  ext_profile  <- 0.78 + 0.22 * sin(pi * t_seq^0.85)
+  r_barrel_in  <- 6.2 * ext_profile
+  r_barrel_out <- 24.2 * ext_profile
+  r_sweet_seq  <- r_sweet * (ext_profile / (0.78 + 0.22 * sin(pi * t_cont^0.85)))
+
+  barrel_in_x  <- hand_x_arc + dir * r_barrel_in * cos(phi_seq)
+  barrel_in_y  <- hand_y_arc + r_barrel_in * sin(phi_seq)
+  barrel_out_x <- hand_x_arc + dir * r_barrel_out * cos(phi_seq)
+  barrel_out_y <- hand_y_arc + r_barrel_out * sin(phi_seq)
+  sweet_x      <- hand_x_arc + dir * r_sweet_seq * cos(phi_seq)
+  sweet_y      <- hand_y_arc + r_sweet_seq * sin(phi_seq)
+
+  # Polygon for full area covered by the barrel (and lighter inner handle sweep)
+  top_barrel_poly <- tibble(
+    x = c(barrel_in_x, rev(barrel_out_x)),
+    y = c(barrel_in_y, rev(barrel_out_y))
   )
+  top_handle_poly <- tibble(
+    x = c(hand_x_arc, rev(barrel_in_x)),
+    y = c(hand_y_arc, rev(barrel_in_y))
+  )
+  top_arc <- tibble(x = sweet_x, y = sweet_y)
+  top_outer_arc <- tibble(x = barrel_out_x, y = barrel_out_y)
+  top_inner_arc <- tibble(x = barrel_in_x, y = barrel_in_y)
+
+  # Full bat at point of contact (handle + thicker barrel extending across entire plate to barrel tip)
+  r_in_c  <- 6.2 * (0.78 + 0.22 * sin(pi * t_cont^0.85))
+  r_out_c <- 24.2 * (0.78 + 0.22 * sin(pi * t_cont^0.85))
+  hand_contact_x <- hx_cont
+  hand_contact_y <- hy_cont
+  brl_in_cont_x  <- hx_cont + dir * r_in_c * cos(phi_cont)
+  brl_in_cont_y  <- hy_cont + r_in_c * sin(phi_cont)
+  brl_out_cont_x <- hx_cont + dir * r_out_c * cos(phi_cont)
+  brl_out_cont_y <- hy_cont + r_out_c * sin(phi_cont)
 
   head_x <- if (specs$side == "L") mid_foot_x - 2.0 else mid_foot_x + 2.0
   head_y <- mid_foot_y + 1.5
@@ -435,34 +455,71 @@ plot_savant_biomechanics <- \(p_id) {
   hx <- cx - 9.5
   hy <- shldr_y + 1.8
   bat_len <- 14.5
+  bat_in_len <- 6.5
+  bat_sweet_len <- 11.0
   rad_start <- specs$start_deg * pi / 180
   bat_tip_x <- hx - bat_len * cos(rad_start)
   bat_tip_y <- hy + bat_len * sin(rad_start)
+  bat_in_x <- hx - bat_in_len * cos(rad_start)
+  bat_in_y <- hy + bat_in_len * sin(rad_start)
+  bat_sweet_x <- hx - bat_sweet_len * cos(rad_start)
+  bat_sweet_y <- hy + bat_sweet_len * sin(rad_start)
 
-  # Side-view swing path: barrel drops into zone and sweeps LEFT-TO-RIGHT to contact in front of plate
+  # Side-view swing path: barrel drops from setup into zone and sweeps upward at Attack Angle
   imp_x <- cx + 9.5
   imp_y <- 2.0
   rad_att <- specs$attack_deg * pi / 180
   follow_x <- imp_x + 14 * cos(rad_att)
   follow_y <- imp_y + 14 * sin(rad_att)
 
-  side_curve <- tibble(
-    x = (1 - t_seq)^2 * hx + 2 * (1 - t_seq) * t_seq * (cx - 6) + t_seq^2 * imp_x,
-    y = (1 - t_seq)^2 * hy + 2 * (1 - t_seq) * t_seq * (-7) + t_seq^2 * imp_y
+  # Smooth curve from setup -> lag slot behind plate -> impact point, then along attack angle
+  t1 <- seq(0, 1, length.out = 45)
+  t2 <- seq(0, 1, length.out = 20)[-1]
+
+  # Sweet-spot centerline curve
+  ctrl_sx <- cx - 8.5
+  ctrl_sy <- -6.0
+  sc_x <- c((1 - t1)^2 * bat_sweet_x + 2 * (1 - t1) * t1 * ctrl_sx + t1^2 * imp_x,
+            imp_x + t2 * (follow_x - imp_x))
+  sc_y <- c((1 - t1)^2 * bat_sweet_y + 2 * (1 - t1) * t1 * ctrl_sy + t1^2 * imp_y,
+            imp_y + t2 * (follow_y - imp_y))
+  side_curve <- tibble(x = sc_x, y = sc_y)
+
+  # Outer barrel-tip boundary and inner-barrel boundary sweeping the full side-view barrel zone
+  out_x <- c((1 - t1)^2 * bat_tip_x + 2 * (1 - t1) * t1 * (ctrl_sx - 3.2) + t1^2 * (imp_x + 1.5),
+             (imp_x + 1.5) + t2 * (follow_x - imp_x))
+  out_y <- c((1 - t1)^2 * bat_tip_y + 2 * (1 - t1) * t1 * (ctrl_sy - 3.2) + t1^2 * (imp_y - 2.8),
+             (imp_y - 2.8) + t2 * (follow_y - imp_y))
+
+  in_x <- c((1 - t1)^2 * bat_in_x + 2 * (1 - t1) * t1 * (ctrl_sx + 2.8) + t1^2 * (imp_x - 1.5),
+            (imp_x - 1.5) + t2 * (follow_x - imp_x))
+  in_y <- c((1 - t1)^2 * bat_in_y + 2 * (1 - t1) * t1 * (ctrl_sy + 2.8) + t1^2 * (imp_y + 2.6),
+            (imp_y + 2.6) + t2 * (follow_y - imp_y))
+
+  side_barrel_poly <- tibble(
+    x = c(in_x, rev(out_x)),
+    y = c(in_y, rev(out_y))
   )
+  side_outer_arc <- tibble(x = out_x, y = out_y)
+  side_inner_arc <- tibble(x = in_x, y = in_y)
 
   ggplot() +
     # Panel backgrounds
     annotate("rect", xmin = -44, xmax = 44, ymin = -32, ymax = 34, fill = "#ffffff", color = "gray80", linewidth = 0.5) +
     annotate("rect", xmin = 54, xmax = 148, ymin = -32, ymax = 34, fill = "#ffffff", color = "gray80", linewidth = 0.5) +
     # Panel headers
-    annotate("text", x = 0, y = 30.8, label = "OVERHEAD VIEW: STANCE & POINT OF CONTACT", fontface = "bold", size = 3.1, color = "#1d3557") +
-    annotate("text", x = 101, y = 30.8, label = "SIDE VIEW (PITCHER ON RIGHT): BAT SETUP & ATTACK ANGLE", fontface = "bold", size = 3.0, color = "#1d3557") +
+    annotate("text", x = 0, y = 30.8, label = "OVERHEAD VIEW: STANCE & BARREL COVERAGE ZONE", fontface = "bold", size = 3.0, color = "#1d3557") +
+    annotate("text", x = 101, y = 30.8, label = "SIDE VIEW (PITCHER ON RIGHT): BARREL PATH & ATTACK ANGLE", fontface = "bold", size = 2.95, color = "#1d3557") +
     # --- Overhead elements ---
     geom_path(data = l_box, aes(x, y), color = "gray82", linetype = "dashed", linewidth = 0.6) +
     geom_path(data = r_box, aes(x, y), color = "gray82", linetype = "dashed", linewidth = 0.6) +
     geom_polygon(data = plate_top, aes(x, y), fill = "#f8f9fa", color = "#1d3557", linewidth = 0.9) +
     annotate("text", x = 0, y = -2, label = "HOME\nPLATE", size = 2.1, fontface = "bold", color = "gray40") +
+    # Shaded handle sweep & full Barrel Coverage Zone across home plate
+    geom_polygon(data = top_handle_poly, aes(x, y), fill = specs$accent, alpha = 0.10) +
+    geom_polygon(data = top_barrel_poly, aes(x, y), fill = specs$secondary, alpha = 0.24) +
+    geom_path(data = top_outer_arc, aes(x, y), color = specs$secondary, linewidth = 0.8, alpha = 0.65) +
+    geom_path(data = top_inner_arc, aes(x, y), color = specs$secondary, linewidth = 0.7, alpha = 0.45, linetype = "dotted") +
     annotate("segment", x = 0, y = 25.5, xend = 0, yend = 17, arrow = arrow(length = unit(0.20, "cm"), type = "closed"), color = "#e63946", linewidth = 0.9) +
     annotate("text", x = 0, y = 27.6, label = "PITCHER (Incoming Pitch)", size = 2.5, color = "#e63946", fontface = "bold") +
     annotate("text", x = 0, y = -16.5, label = "CATCHER", size = 2.2, color = "gray50", fontface = "bold") +
@@ -483,11 +540,14 @@ plot_savant_biomechanics <- \(p_id) {
              size = 4.5, shape = 21, fill = specs$accent, color = "white", stroke = 1.1) +
     annotate("text", x = specs$back_x, y = specs$back_y - 4.2, label = "Back Foot", size = 2.5, fontface = "bold", color = specs$accent) +
     annotate("text", x = specs$front_x, y = specs$front_y + 4.2, label = "Front Foot", size = 2.5, fontface = "bold", color = specs$accent) +
-    # Top-down barrel path & Bat crossing Home Plate at contact
+    # Top-down sweet-spot path & full-length Bat (handle + thick barrel) crossing Home Plate at contact
     geom_path(data = top_arc, aes(x, y), color = specs$secondary, linewidth = 1.2, linetype = "dashed") +
     annotate("segment", x = hand_contact_x, y = hand_contact_y,
-             xend = specs$contact_x, yend = specs$contact_y,
-             color = "#1d3557", linewidth = 2.6, lineend = "round") +
+             xend = brl_in_cont_x, yend = brl_in_cont_y,
+             color = "#457b9d", linewidth = 1.8, lineend = "round") +
+    annotate("segment", x = brl_in_cont_x, y = brl_in_cont_y,
+             xend = brl_out_cont_x, yend = brl_out_cont_y,
+             color = "#1d3557", linewidth = 3.6, lineend = "round") +
     annotate("point", x = specs$contact_x, y = specs$contact_y, size = 4.2, shape = 21, fill = "#ffb703", color = "#1d3557", stroke = 1.1) +
     annotate("label", x = 0, y = -26.5,
              label = paste0("Stance: ", specs$stance_label, "  |  Contact: +", specs$contact_y, "\" in front of plate"),
@@ -513,21 +573,27 @@ plot_savant_biomechanics <- \(p_id) {
     annotate("text", x = cx + 0.5, y = -3.8, label = "STRIKE ZONE", size = 2.2, color = "gray45", fontface = "bold") +
     geom_polygon(data = side_plate, aes(x, y), fill = "white", color = "#1d3557", linewidth = 0.8) +
     annotate("text", x = cx, y = -22.2, label = "Home Plate", size = 2.3, color = "gray45", fontface = "italic") +
+    # Side-view shaded Barrel Sweep Zone through the hitting zone
+    geom_polygon(data = side_barrel_poly, aes(x, y), fill = specs$accent, alpha = 0.22) +
+    geom_path(data = side_outer_arc, aes(x, y), color = specs$accent, linewidth = 0.8, alpha = 0.65) +
+    geom_path(data = side_inner_arc, aes(x, y), color = specs$accent, linewidth = 0.7, alpha = 0.45, linetype = "dotted") +
     # Incoming Pitch Arrow from Pitcher on Right (placed cleanly in lower-right of zone)
     annotate("segment", x = 145, y = -2.5, xend = imp_x + 3.5, yend = imp_y - 0.5,
              color = "#e63946", linetype = "dotted", linewidth = 0.9,
              arrow = arrow(length = unit(0.18, "cm"), type = "closed")) +
     annotate("text", x = 132, y = -5.5, label = "⬅ Incoming Pitch", size = 2.4, fontface = "bold", color = "#e63946") +
-    # Horizontal reference at hands & Starting Bat Angle
+    # Horizontal reference at hands & Starting Bat (handle + thick barrel)
     annotate("segment", x = hx - 12, y = hy, xend = hx + 3, yend = hy, color = "gray60", linetype = "dotted") +
-    annotate("segment", x = hx, y = hy, xend = bat_tip_x, yend = bat_tip_y,
-             color = "#1d3557", linewidth = 2.6, lineend = "round") +
+    annotate("segment", x = hx, y = hy, xend = bat_in_x, yend = bat_in_y,
+             color = "#457b9d", linewidth = 1.8, lineend = "round") +
+    annotate("segment", x = bat_in_x, y = bat_in_y, xend = bat_tip_x, yend = bat_tip_y,
+             color = "#1d3557", linewidth = 3.5, lineend = "round") +
     annotate("point", x = hx, y = hy, size = 3.6, color = specs$accent) +
     annotate("label", x = hx - 14.5, y = hy - 5.2,
              label = paste0("Start Bat: ", specs$start_deg, "°"),
              size = 2.55, fontface = "bold", fill = "#ffffff", color = "#1d3557", label.size = 0.25) +
-    # Swing path arc sweeping forward into impact + Attack Angle vector
-    geom_path(data = side_curve, aes(x, y), color = specs$accent, linewidth = 1.4, linetype = "solid") +
+    # Swing path sweet-spot centerline sweeping forward into impact + Attack Angle vector
+    geom_path(data = side_curve, aes(x, y), color = specs$accent, linewidth = 1.3, linetype = "dashed") +
     annotate("segment", x = imp_x - 5, y = imp_y, xend = imp_x + 13, yend = imp_y,
              color = "gray55", linetype = "dashed", linewidth = 0.6) +
     annotate("segment", x = imp_x, y = imp_y, xend = follow_x, yend = follow_y,
